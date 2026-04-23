@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { Star, Quote, Send, CheckCircle, User, Mail, MessageSquare } from 'lucide-react';
+import { Star, Quote, Send, CheckCircle, User, Mail, MessageSquare, Loader2, Clock } from 'lucide-react';
+import * as api from '../services/api';
 
 const allReviews = [
   { name: 'Sarah Mitchell', role: 'VP Supply Chain, TechFlow Inc.', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?fm=jpg&fit=crop&w=100&q=80', text: 'NexusRoute transformed our supply chain. Real-time tracking and proactive communication reduced our delivery issues by over 60%.', rating: 5, date: 'March 12, 2025' },
@@ -60,12 +61,39 @@ const ReviewsPage: React.FC = () => {
   const INITIAL_SHOW = 6;
   const [showAll, setShowAll] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', role: '', text: '', rating: 5 });
-  const [userReviews, setUserReviews] = useState<typeof allReviews>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [approvedReviews, setApprovedReviews] = useState<typeof allReviews>([]);
+  const [loadingReviews, setLoadingReviews] = useState(true);
 
-  const displayed = showAll ? [...userReviews, ...allReviews] : [...userReviews, ...allReviews].slice(0, INITIAL_SHOW);
-  const total = allReviews.length + userReviews.length;
+  // Fetch approved reviews from API on mount, fall back to static
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await api.reviews.approved();
+        if (data.reviews && data.reviews.length > 0) {
+          setApprovedReviews(data.reviews.map((r: any) => ({
+            name: r.name,
+            role: r.role,
+            avatar: r.avatar,
+            text: r.text,
+            rating: r.rating,
+            date: new Date(r.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+          })));
+        }
+      } catch {
+        // API not available, keep static reviews
+      } finally {
+        setLoadingReviews(false);
+      }
+    })();
+  }, []);
+
+  // Combine: API approved reviews first, then static fallback
+  const combinedReviews = approvedReviews.length > 0 ? [...approvedReviews, ...allReviews] : allReviews;
+  const displayed = showAll ? combinedReviews : combinedReviews.slice(0, INITIAL_SHOW);
+  const total = combinedReviews.length;
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -77,23 +105,33 @@ const ReviewsPage: React.FC = () => {
     return e;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
-    const newReview = {
-      name: form.name,
-      role: form.role || 'Verified Customer',
-      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(form.name)}&background=0a192f&color=fff&size=100`,
-      text: form.text,
-      rating: form.rating,
-      date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
-    };
-    setUserReviews(prev => [newReview, ...prev]);
-    setSubmitted(true);
-    setForm({ name: '', email: '', role: '', text: '', rating: 5 });
-    setErrors({});
-    setTimeout(() => setSubmitted(false), 4000);
+    
+    setSubmitting(true);
+    try {
+      const result = await api.reviews.submit({
+        name: form.name,
+        email: form.email,
+        role: form.role || undefined,
+        text: form.text,
+        rating: form.rating,
+      });
+      if (result.error) {
+        setErrors({ submit: result.error });
+      } else {
+        setSubmitted(true);
+        setForm({ name: '', email: '', role: '', text: '', rating: 5 });
+        setErrors({});
+        setTimeout(() => setSubmitted(false), 6000);
+      }
+    } catch {
+      setErrors({ submit: 'Failed to submit. Please try again.' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const avgRating = (allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length).toFixed(1);
@@ -192,7 +230,16 @@ const ReviewsPage: React.FC = () => {
           {submitted && (
             <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3 text-green-700">
               <CheckCircle className="w-5 h-5 flex-shrink-0" />
-              <p className="text-sm font-medium">Thank you! Your review has been posted successfully.</p>
+              <div>
+                <p className="text-sm font-medium">Thank you! Your review has been submitted successfully.</p>
+                <p className="text-xs text-green-600 mt-0.5 flex items-center gap-1"><Clock className="w-3 h-3" /> It will appear on the site once approved by our team.</p>
+              </div>
+            </div>
+          )}
+
+          {errors.submit && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {errors.submit}
             </div>
           )}
 
@@ -255,10 +302,11 @@ const ReviewsPage: React.FC = () => {
             </div>
             <button
               type="submit"
-              className="w-full py-3.5 bg-[#0a192f] text-white font-semibold rounded-sm hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-blue-700/20"
+              disabled={submitting}
+              className="w-full py-3.5 bg-[#0a192f] text-white font-semibold rounded-sm hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-blue-700/20 disabled:opacity-50"
             >
-              <Send className="w-4 h-4" />
-              Submit Review
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {submitting ? 'Submitting...' : 'Submit Review'}
             </button>
             <p className="text-xs text-gray-400 text-center">Your email is used for verification only and will not be displayed publicly.</p>
           </form>

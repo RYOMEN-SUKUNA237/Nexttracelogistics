@@ -36,7 +36,7 @@ export interface Shipment {
   lng?: number;
 }
 
-export type AdminPage = 'overview' | 'couriers' | 'customers' | 'shipments' | 'track-map' | 'messages' | 'quotes' | 'settings';
+export type AdminPage = 'overview' | 'couriers' | 'customers' | 'shipments' | 'track-map' | 'messages' | 'quotes' | 'reviews' | 'settings';
 
 // Generate unique courier ID
 export const generateCourierId = (): string => {

@@ -12,6 +12,7 @@ const shipmentRoutes = require('./routes/shipments');
 const dashboardRoutes = require('./routes/dashboard');
 const messageRoutes = require('./routes/messages');
 const quoteRoutes = require('./routes/quotes');
+const reviewRoutes = require('./routes/reviews');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -88,6 +89,7 @@ app.use('/api/shipments', shipmentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/messages', publicLimiter, messageRoutes);
 app.use('/api/quotes', publicLimiter, quoteRoutes);
+app.use('/api/reviews', publicLimiter, reviewRoutes);
 
 // Root route — minimal, no API map exposed
 app.get('/', (req, res) => {
@@ -136,5 +138,10 @@ app.listen(PORT, () => {
   console.log(`  POST   /api/quotes                (public)`);
   console.log(`  GET    /api/quotes/admin           (admin)`);
   console.log(`  PATCH  /api/quotes/admin/:id/status (admin)`);
+  console.log(`  POST   /api/reviews              (public)`);
+  console.log(`  GET    /api/reviews/approved       (public)`);
+  console.log(`  GET    /api/reviews/admin           (admin)`);
+  console.log(`  PATCH  /api/reviews/admin/:id/approve (admin)`);
+  console.log(`  DELETE /api/reviews/admin/:id       (admin)`);
   console.log(`\n`);
 });

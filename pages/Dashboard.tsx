@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { 
   LayoutDashboard, Map as MapIcon, Package, Users, Settings as SettingsIcon, 
-  Bell, LogOut, Menu, X, Search, ChevronDown, Loader2, UserCircle, Lock, Contact, MessageCircle, FileText
+  Bell, LogOut, Menu, X, Search, ChevronDown, Loader2, UserCircle, Lock, Contact, MessageCircle, FileText, Star
 } from 'lucide-react';
 import { AdminPage, Courier, Shipment } from './admin/types';
 import Overview from './admin/Overview';
@@ -14,6 +14,7 @@ import SettingsPage from './admin/Settings';
 import CustomersPage from './admin/Customers';
 import MessagesPage from './admin/Messages';
 import QuotesPage from './admin/Quotes';
+import AdminReviewsPage from './admin/Reviews';
 import * as api from '../services/api';
 
 const sidebarItems: { id: AdminPage; label: string; icon: React.ReactNode }[] = [
@@ -24,6 +25,7 @@ const sidebarItems: { id: AdminPage; label: string; icon: React.ReactNode }[] = 
   { id: 'track-map', label: 'Live Map', icon: <MapIcon size={20} /> },
   { id: 'messages', label: 'Messages', icon: <MessageCircle size={20} /> },
   { id: 'quotes', label: 'Quotes', icon: <FileText size={20} /> },
+  { id: 'reviews', label: 'Reviews', icon: <Star size={20} /> },
   { id: 'settings', label: 'Settings', icon: <SettingsIcon size={20} /> },
 ];
 
@@ -151,6 +153,8 @@ const Dashboard: React.FC = () => {
         return <MessagesPage />;
       case 'quotes':
         return <QuotesPage />;
+      case 'reviews':
+        return <AdminReviewsPage />;
       case 'settings':
         return <SettingsPage />;
       default:

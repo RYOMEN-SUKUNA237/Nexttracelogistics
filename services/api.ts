@@ -238,5 +238,36 @@ export const quotes = {
   adminStats: () => apiFetch('/quotes/admin-stats'),
 };
 
+// ─── REVIEWS ─────────────────────────────────────────────────────────
+export const reviews = {
+  // Public: submit a review (goes to pending)
+  submit: (data: { name: string; email: string; role?: string; text: string; rating: number }) =>
+    fetch(`${API_BASE}/reviews`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()),
+
+  // Public: get approved reviews only
+  approved: () =>
+    fetch(`${API_BASE}/reviews/approved`).then(r => r.json()),
+
+  // Admin: list all reviews with optional filters
+  adminList: (params?: { status?: string; search?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.set('status', params.status);
+    if (params?.search) query.set('search', params.search);
+    return apiFetch(`/reviews/admin?${query.toString()}`);
+  },
+
+  // Admin: approve a review
+  adminApprove: (id: number) =>
+    apiFetch(`/reviews/admin/${id}/approve`, { method: 'PATCH' }),
+
+  // Admin: reject a review
+  adminReject: (id: number, admin_notes?: string) =>
+    apiFetch(`/reviews/admin/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ admin_notes }) }),
+
+  // Admin: delete a review
+  adminDelete: (id: number) =>
+    apiFetch(`/reviews/admin/${id}`, { method: 'DELETE' }),
+};
+
 // ─── HEALTH ───────────────────────────────────────────────────────────
 export const health = () => fetch(`${API_BASE}/health`).then(r => r.json());
