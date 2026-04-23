@@ -114,13 +114,13 @@ const AboutSection: React.FC = () => (
         <Reveal direction="right" delay={0.2}>
           <div className="space-y-6">
             <div className="inline-block px-3 py-1 bg-blue-50 text-blue-700 text-xs font-semibold tracking-wider uppercase rounded-full">
-              About Aura Track
+              About NexusRoute Global Logistics
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold text-[#0a192f] leading-tight">
               Your Trusted Partner in Global Logistics Solutions
             </h2>
             <p className="text-gray-600 leading-relaxed">
-              Founded in 2010, Aura Track has grown from a regional courier service into a global logistics 
+              Founded in 2010, NexusRoute Global Logistics has grown from a regional courier service into a global logistics 
               powerhouse. We combine cutting-edge technology with decades of industry expertise to deliver 
               unmatched supply chain solutions.
             </p>
@@ -563,14 +563,14 @@ const testimonials = [
     name: 'Sarah Mitchell',
     role: 'VP Supply Chain, TechFlow Inc.',
     avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?fm=jpg&fit=crop&w=100&q=80',
-    text: 'Aura Track transformed our supply chain operations. Their real-time tracking and proactive communication have reduced our delivery issues by over 60%.',
+    text: 'NexusRoute Global Logistics transformed our supply chain operations. Their real-time tracking and proactive communication have reduced our delivery issues by over 60%.',
     rating: 5,
   },
   {
     name: 'James Okonkwo',
     role: 'CEO, AfriTrade Exports',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?fm=jpg&fit=crop&w=100&q=80',
-    text: 'From customs clearance to last-mile delivery, Aura Track handles everything seamlessly. They\'ve been our logistics backbone for 5 years and counting.',
+    text: 'From customs clearance to last-mile delivery, NexusRoute Global Logistics handles everything seamlessly. They\'ve been our logistics backbone for 5 years and counting.',
     rating: 5,
   },
   {
@@ -728,7 +728,7 @@ const ContactSection: React.FC = () => (
                 </div>
                 <div>
                   <h4 className="font-semibold text-white text-sm">Phone</h4>
-                  <p className="text-sm text-gray-400 mt-1">+1 (800) 555-AURA</p>
+                  <p className="text-sm text-gray-400 mt-1">+19564037614</p>
                 </div>
               </div>
               <div className="flex items-start gap-4">
@@ -737,7 +737,7 @@ const ContactSection: React.FC = () => (
                 </div>
                 <div>
                   <h4 className="font-semibold text-white text-sm">Email</h4>
-                  <p className="text-sm text-gray-400 mt-1">info@auratrack.com</p>
+                  <p className="text-sm text-gray-400 mt-1">nexusroutegloballogistics@gmail.com</p>
                 </div>
               </div>
               <div className="flex items-start gap-4">

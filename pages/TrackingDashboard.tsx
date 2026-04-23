@@ -227,7 +227,7 @@ const TrackingDashboard: React.FC = () => {
             <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center">
               <Package size={18} />
             </div>
-            <span className="text-lg font-bold tracking-tight">Aura Track</span>
+            <span className="text-lg font-bold tracking-tight">NexusRoute Global Logistics</span>
           </Link>
           <form onSubmit={handleSearch} className="flex items-center gap-2">
             <div className="relative">
@@ -570,7 +570,7 @@ const TrackingDashboard: React.FC = () => {
 
       {/* Footer */}
       <footer className="bg-[#0a192f] text-gray-400 text-center py-6 mt-12">
-        <p className="text-xs">&copy; 2026 Aura Track. All rights reserved.</p>
+        <p className="text-xs">&copy; 2026 NexusRoute Global Logistics. All rights reserved.</p>
       </footer>
 
       <style>{`

@@ -186,7 +186,7 @@ const ChatWidget: React.FC = () => {
                   <Headphones size={18} className="text-white" />
                 </div>
                 <div>
-                  <p className="text-white font-semibold text-sm">Aura Track Support</p>
+                  <p className="text-white font-semibold text-sm">NexusRoute Global Logistics Support</p>
                   <div className="flex items-center gap-1.5">
                     <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
                     <span className="text-gray-400 text-[11px]">We typically reply in minutes</span>
