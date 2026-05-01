@@ -192,7 +192,7 @@ const Dashboard: React.FC = () => {
             <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center mx-auto mb-4">
               <span className="text-[#0a192f] text-2xl font-bold">NR</span>
             </div>
-            <h1 className="text-2xl font-bold text-white">NexusRoute Global Logistics</h1>
+            <h1 className="text-2xl font-bold text-white">Next Trace Logistics</h1>
             <p className="text-gray-400 text-sm mt-1">Admin Portal</p>
           </div>
           <form onSubmit={handleLogin} className="p-8 space-y-5">
@@ -335,7 +335,7 @@ const Dashboard: React.FC = () => {
               </button>
               <div>
                 <h1 className="text-lg font-bold text-[#0a192f]">{currentLabel}</h1>
-                <p className="text-xs text-gray-400 hidden sm:block">NexusRoute Global Logistics Admin Portal</p>
+                <p className="text-xs text-gray-400 hidden sm:block">Next Trace Logistics Admin Portal</p>
               </div>
             </div>
 

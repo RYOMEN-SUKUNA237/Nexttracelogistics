@@ -524,19 +524,39 @@ const Shipments: React.FC<ShipmentsProps> = ({ shipments, setShipments, couriers
                 <p className="text-xs text-gray-400 mt-1">{selectedShipment.progress}% complete {selectedShipment.isPaused && '(PAUSED)'}</p>
               </div>
               <div className="flex gap-2 pt-2">
-                {selectedShipment.status !== 'delivered' && (
-                  <button onClick={() => { handlePauseResume(selectedShipment); setSelectedShipment(null); }}
-                    className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-colors ${
-                      selectedShipment.isPaused ? 'bg-green-600 text-white hover:bg-green-500' : 'bg-amber-500 text-white hover:bg-amber-400'
-                    }`}>
-                    {selectedShipment.isPaused ? <><Play size={14} /> Resume</> : <><Pause size={14} /> Pause</>}
-                  </button>
-                )}
-                {selectedShipment.status !== 'delivered' && (
-                  <button onClick={() => { handleUpdateStatus(selectedShipment, 'delivered'); setSelectedShipment(null); }}
-                    className="flex-1 px-4 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-500 transition-colors flex items-center justify-center gap-2">
-                    <CheckCircle size={14} /> Mark Delivered
-                  </button>
+                {selectedShipment.type === 'Live Animals' ? (
+                  <div className="w-full space-y-3">
+                    <p className="text-xs text-blue-600 font-bold uppercase tracking-wide border-b border-gray-100 pb-1">🐾 Pet Tracking Controls</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button onClick={() => { handleUpdateStatus(selectedShipment, 'picked-up'); setSelectedShipment(null); }} className="px-3 py-2 bg-purple-100 text-purple-700 text-xs font-semibold rounded-lg hover:bg-purple-200 transition-colors">Set: Pickup</button>
+                      <button onClick={() => { handleUpdateStatus(selectedShipment, 'in-transit'); setSelectedShipment(null); }} className="px-3 py-2 bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg hover:bg-blue-200 transition-colors">Set: Transit</button>
+                      <button onClick={() => { handleUpdateStatus(selectedShipment, 'out-for-delivery'); setSelectedShipment(null); }} className="px-3 py-2 bg-cyan-100 text-cyan-700 text-xs font-semibold rounded-lg hover:bg-cyan-200 transition-colors">Set: Out for Delivery</button>
+                      <button onClick={() => { handleUpdateStatus(selectedShipment, 'delivered'); setSelectedShipment(null); }} className="px-3 py-2 bg-green-100 text-green-700 text-xs font-semibold rounded-lg hover:bg-green-200 transition-colors">Set: Arrived / Delivered</button>
+                    </div>
+                    <button onClick={() => { handlePauseResume(selectedShipment); setSelectedShipment(null); }}
+                      className={`w-full px-4 py-2.5 text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-colors ${
+                        selectedShipment.isPaused ? 'bg-green-600 text-white hover:bg-green-500' : 'bg-amber-500 text-white hover:bg-amber-400'
+                      }`}>
+                      {selectedShipment.isPaused ? <><Play size={14} /> Resume Transport</> : <><Pause size={14} /> Pause for Comfort/Care</>}
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {selectedShipment.status !== 'delivered' && (
+                      <button onClick={() => { handlePauseResume(selectedShipment); setSelectedShipment(null); }}
+                        className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-colors ${
+                          selectedShipment.isPaused ? 'bg-green-600 text-white hover:bg-green-500' : 'bg-amber-500 text-white hover:bg-amber-400'
+                        }`}>
+                        {selectedShipment.isPaused ? <><Play size={14} /> Resume</> : <><Pause size={14} /> Pause</>}
+                      </button>
+                    )}
+                    {selectedShipment.status !== 'delivered' && (
+                      <button onClick={() => { handleUpdateStatus(selectedShipment, 'delivered'); setSelectedShipment(null); }}
+                        className="flex-1 px-4 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-500 transition-colors flex items-center justify-center gap-2">
+                        <CheckCircle size={14} /> Mark Delivered
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -721,9 +741,15 @@ const Shipments: React.FC<ShipmentsProps> = ({ shipments, setShipments, couriers
                     <select value={pauseCategory} onChange={e => setPauseCategory(e.target.value)}
                       className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] outline-none bg-white">
                       <option value="">Select a category...</option>
-                      {['Customs Hold', 'Weather Delay', 'Port Congestion', 'Document Issue', 'Transit Change', 'Recipient Unavailable', 'Security Check', 'Other'].map(c => (
-                        <option key={c}>{c}</option>
-                      ))}
+                      {pauseModal.shipment.type === 'Live Animals' ? (
+                        ['Veterinary Check', 'Feeding & Walking', 'Rest Period', 'Temperature Control', 'Document Issue', 'Other'].map(c => (
+                          <option key={c}>{c}</option>
+                        ))
+                      ) : (
+                        ['Customs Hold', 'Weather Delay', 'Port Congestion', 'Document Issue', 'Transit Change', 'Recipient Unavailable', 'Security Check', 'Other'].map(c => (
+                          <option key={c}>{c}</option>
+                        ))
+                      )}
                     </select>
                   </div>
                   <div>

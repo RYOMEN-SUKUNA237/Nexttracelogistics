@@ -53,7 +53,7 @@ export const serviceDetails: ServiceDetail[] = [
     overviewTitle: 'What is Air Freight?',
     overviewParagraphs: [
       'Air freight is the transportation of goods via aircraft — one of the fastest and most reliable methods for moving cargo across continents. Whether you need to ship high-value electronics, time-sensitive pharmaceuticals, or urgent commercial goods, air freight ensures your shipments arrive swiftly and securely.',
-      'At NexusRoute Global Logistics, we leverage strategic partnerships with major airlines and cargo carriers across 500+ airports worldwide, delivering seamless air cargo solutions tailored to your unique requirements. Our advanced tracking infrastructure provides real-time visibility from takeoff to touchdown, giving you complete peace of mind throughout the journey.',
+      'At Next Trace Logistics, we leverage strategic partnerships with major airlines and cargo carriers across 500+ airports worldwide, delivering seamless air cargo solutions tailored to your unique requirements. Our advanced tracking infrastructure provides real-time visibility from takeoff to touchdown, giving you complete peace of mind throughout the journey.',
       'With decades of experience managing complex air logistics, our team ensures every shipment is handled with precision — from documentation and customs compliance to final-mile delivery at the destination.',
     ],
     whyChooseTitle: 'Why Choose Air Freight?',
@@ -67,7 +67,7 @@ export const serviceDetails: ServiceDetail[] = [
       { icon: 'Eye', title: 'Real-Time Tracking', description: 'Our proprietary tracking system provides live updates at every stage — from origin pickup through customs clearance to final delivery.' },
     ],
     serviceTypesTitle: 'Our Air Freight Services',
-    serviceTypesIntro: 'NexusRoute Global Logistics offers a comprehensive range of air freight solutions designed to meet diverse shipping requirements:',
+    serviceTypesIntro: 'Next Trace Logistics offers a comprehensive range of air freight solutions designed to meet diverse shipping requirements:',
     serviceTypes: [
       { title: 'Standard Air Freight', description: 'Cost-effective air cargo on scheduled commercial flights. Ideal for general merchandise with transit times of 3–7 business days depending on route and destination. Includes full documentation and customs support.', image: 'https://images.unsplash.com/photo-1436491865332-7a61a109db05?fm=jpg&fit=crop&w=600&q=80' },
       { title: 'Express Air Freight', description: 'Priority handling and next-flight-out service for time-critical shipments. Guaranteed delivery within 24–72 hours to major global destinations. Includes dedicated tracking and proactive status updates.', image: 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?fm=jpg&fit=crop&w=600&q=80' },
@@ -76,7 +76,7 @@ export const serviceDetails: ServiceDetail[] = [
       { title: 'Consolidation Services', description: 'Share aircraft space with other shippers to reduce costs without sacrificing speed. Ideal for smaller shipments that don\'t require a full unit load device (ULD). Competitive rates with reliable schedules.', image: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?fm=jpg&fit=crop&w=600&q=80' },
       { title: 'Dangerous Goods Handling', description: 'IATA-certified handling and transport of hazardous materials including chemicals, lithium batteries, and flammable goods. Full regulatory compliance, specialized packaging, and trained personnel.', image: 'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?fm=jpg&fit=crop&w=600&q=80' },
     ],
-    processTitle: 'How Air Freight Works with NexusRoute Global Logistics',
+    processTitle: 'How Air Freight Works with Next Trace Logistics',
     processIntro: 'Our streamlined air freight process ensures efficiency and transparency at every stage:',
     processSteps: [
       { step: 1, title: 'Consultation & Booking', description: 'Our logistics consultants assess your requirements, recommend the optimal service tier, and handle all booking coordination with carrier partners.' },
@@ -110,7 +110,7 @@ export const serviceDetails: ServiceDetail[] = [
     overviewTitle: 'What is Ocean Freight?',
     overviewParagraphs: [
       'Ocean freight is the backbone of international trade, responsible for moving over 80% of the world\'s goods. It involves transporting cargo via container ships across maritime routes, offering the most cost-effective solution for large-volume and heavy shipments.',
-      'NexusRoute Global Logistics provides comprehensive ocean freight services — from full container loads (FCL) and less-than-container loads (LCL) to specialized reefer and open-top containers. We maintain strategic partnerships with leading ocean carriers to secure competitive rates and guaranteed space across all major trade lanes.',
+      'Next Trace Logistics provides comprehensive ocean freight services — from full container loads (FCL) and less-than-container loads (LCL) to specialized reefer and open-top containers. We maintain strategic partnerships with leading ocean carriers to secure competitive rates and guaranteed space across all major trade lanes.',
       'Our maritime logistics team brings deep expertise in port operations, vessel scheduling, customs brokerage, and multimodal integration, ensuring your cargo moves seamlessly from origin port to final destination.',
     ],
     whyChooseTitle: 'Why Choose Ocean Freight?',
@@ -124,7 +124,7 @@ export const serviceDetails: ServiceDetail[] = [
       { icon: 'ShieldCheck', title: 'Comprehensive Insurance', description: 'Full marine cargo insurance protects your goods against loss, damage, and unforeseen events throughout the entire maritime journey.' },
     ],
     serviceTypesTitle: 'Our Ocean Freight Services',
-    serviceTypesIntro: 'NexusRoute Global Logistics delivers end-to-end ocean freight solutions tailored to your specific trade requirements:',
+    serviceTypesIntro: 'Next Trace Logistics delivers end-to-end ocean freight solutions tailored to your specific trade requirements:',
     serviceTypes: [
       { title: 'Full Container Load (FCL)', description: 'Exclusive use of 20ft or 40ft containers for your cargo. Best for large-volume shipments requiring dedicated space, reduced handling, and faster port processing. Available in standard, high-cube, and specialized configurations.', image: 'https://images.unsplash.com/photo-1494412574643-ff11b0a5eb19?fm=jpg&fit=crop&w=600&q=80' },
       { title: 'Less-than-Container Load (LCL)', description: 'Share container space with other shippers to optimize costs for smaller shipments. We handle consolidation at origin and deconsolidation at destination, providing door-to-door convenience without the full-container price tag.', image: 'https://images.unsplash.com/photo-1605745341112-85968b19335b?fm=jpg&fit=crop&w=600&q=80' },
@@ -133,7 +133,7 @@ export const serviceDetails: ServiceDetail[] = [
       { title: 'Port-to-Port & Door-to-Door', description: 'Flexible service scopes from simple port-to-port transportation to comprehensive door-to-door solutions including inland haulage, customs clearance, and final-mile delivery.', image: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?fm=jpg&fit=crop&w=600&q=80' },
       { title: 'Customs Brokerage & Compliance', description: 'Integrated customs clearance services at both origin and destination ports. Our licensed brokers manage tariff classifications, duty optimization, trade compliance, and all documentation requirements.', image: 'https://images.unsplash.com/photo-1553413077-190dd305871c?fm=jpg&fit=crop&w=600&q=80' },
     ],
-    processTitle: 'How Ocean Freight Works with NexusRoute Global Logistics',
+    processTitle: 'How Ocean Freight Works with Next Trace Logistics',
     processIntro: 'Our ocean freight process is designed for transparency and reliability at every stage:',
     processSteps: [
       { step: 1, title: 'Cargo Assessment & Quotation', description: 'We evaluate your cargo dimensions, weight, commodity type, and destination to recommend the optimal container type and shipping route with a competitive quote.' },
@@ -167,7 +167,7 @@ export const serviceDetails: ServiceDetail[] = [
     overviewTitle: 'What is Land Transport?',
     overviewParagraphs: [
       'Land transport encompasses the movement of goods by road and rail — the critical connective tissue of global supply chains. Whether it\'s full truckload shipments across national highways, cross-border freight through multiple jurisdictions, or intermodal rail solutions for long-distance corridors, land transport provides flexible and dependable logistics.',
-      'NexusRoute Global Logistics operates an extensive ground transportation network featuring GPS-tracked fleets, experienced drivers, and strategically positioned hubs. Our road and rail solutions seamlessly integrate with air and ocean freight to deliver true door-to-door coverage anywhere on the map.',
+      'Next Trace Logistics operates an extensive ground transportation network featuring GPS-tracked fleets, experienced drivers, and strategically positioned hubs. Our road and rail solutions seamlessly integrate with air and ocean freight to deliver true door-to-door coverage anywhere on the map.',
       'From single-pallet LTL shipments to dedicated full truckloads and multi-country overland routes, our land transport division handles every scenario with professionalism, punctuality, and complete supply chain visibility.',
     ],
     whyChooseTitle: 'Why Choose Land Transport?',
@@ -181,7 +181,7 @@ export const serviceDetails: ServiceDetail[] = [
       { icon: 'FileCheck', title: 'Cross-Border Expertise', description: 'Our teams manage all customs documentation, transit permits, and regulatory compliance for seamless cross-border movements across multiple countries.' },
     ],
     serviceTypesTitle: 'Our Land Transport Services',
-    serviceTypesIntro: 'NexusRoute Global Logistics provides a full spectrum of ground freight solutions for every requirement:',
+    serviceTypesIntro: 'Next Trace Logistics provides a full spectrum of ground freight solutions for every requirement:',
     serviceTypes: [
       { title: 'Full Truckload (FTL)', description: 'Dedicated truck exclusively for your cargo. Maximum security, faster transit, and no handling between pickup and delivery. Available in dry van, flatbed, refrigerated, and specialized configurations.', image: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?fm=jpg&fit=crop&w=600&q=80' },
       { title: 'Less-than-Truckload (LTL)', description: 'Cost-effective shared trucking for shipments that don\'t fill an entire trailer. We consolidate multiple shippers\' cargo on optimized routes, reducing costs while maintaining reliable delivery windows.', image: 'https://images.unsplash.com/photo-1519003722824-194d4455a60c?fm=jpg&fit=crop&w=600&q=80' },
@@ -190,7 +190,7 @@ export const serviceDetails: ServiceDetail[] = [
       { title: 'Last-Mile Delivery', description: 'The critical final leg from distribution center to end customer. We offer scheduled, same-day, and white-glove delivery services with proof-of-delivery, photo capture, and electronic signatures.', image: 'https://images.unsplash.com/photo-1616432043562-3671ea2e5242?fm=jpg&fit=crop&w=600&q=80' },
       { title: 'Heavy & Oversized Transport', description: 'Specialized equipment and permits for heavy-lift, out-of-gauge, and oversized cargo. Multi-axle trailers, escort vehicles, route surveys, and regulatory coordination for exceptional loads.', image: 'https://images.unsplash.com/photo-1565793298595-6a879b1d9492?fm=jpg&fit=crop&w=600&q=80' },
     ],
-    processTitle: 'How Land Transport Works with NexusRoute Global Logistics',
+    processTitle: 'How Land Transport Works with Next Trace Logistics',
     processIntro: 'Our ground freight operations are built on efficiency and reliability:',
     processSteps: [
       { step: 1, title: 'Route Planning & Optimization', description: 'Our logistics algorithms calculate the fastest and most cost-effective route, accounting for traffic patterns, border crossings, weight restrictions, and delivery windows.' },
@@ -223,7 +223,7 @@ export const serviceDetails: ServiceDetail[] = [
     heroImage: 'https://images.unsplash.com/photo-1616432043562-3671ea2e5242?fm=jpg&fit=crop&w=2000&q=80',
     overviewTitle: 'What is Express Courier?',
     overviewParagraphs: [
-      'Express courier is NexusRoute Global Logistics\'s premium rapid delivery service designed for parcels, documents, and small packages that require guaranteed delivery within strict timeframes. From same-day local deliveries to next-day international shipments, our express service combines speed with the reliability that businesses depend on.',
+      'Express courier is Next Trace Logistics\'s premium rapid delivery service designed for parcels, documents, and small packages that require guaranteed delivery within strict timeframes. From same-day local deliveries to next-day international shipments, our express service combines speed with the reliability that businesses depend on.',
       'Our express courier network utilizes dedicated vehicle fleets, priority cargo slots on commercial flights, and a network of strategically positioned sorting hubs to move your shipments with unmatched velocity. Every express parcel receives a unique tracking ID with minute-by-minute updates.',
       'Whether you\'re sending critical legal documents, e-commerce orders with tight SLAs, medical samples, or time-sensitive industrial components, our express courier service delivers on your promise to your customers — every single time.',
     ],
@@ -238,7 +238,7 @@ export const serviceDetails: ServiceDetail[] = [
       { icon: 'Headphones', title: 'Dedicated Support', description: 'Priority customer support with a dedicated account manager for business clients. Real-time issue resolution and proactive delivery management.' },
     ],
     serviceTypesTitle: 'Our Express Courier Services',
-    serviceTypesIntro: 'NexusRoute Global Logistics offers tiered express services to match your urgency and budget:',
+    serviceTypesIntro: 'Next Trace Logistics offers tiered express services to match your urgency and budget:',
     serviceTypes: [
       { title: 'Same-Day Rush', description: 'The fastest option for local and metro-area deliveries. Pickup within 60 minutes of booking, delivery within 2–4 hours. Ideal for urgent legal documents, medical samples, and critical business materials.', image: 'https://images.unsplash.com/photo-1616432043562-3671ea2e5242?fm=jpg&fit=crop&w=600&q=80' },
       { title: 'Next-Day Domestic', description: 'Guaranteed next-business-day delivery to any domestic address. Cutoff time for same-day processing is 6:00 PM local time. Includes tracking, insurance up to $1,000, and proof of delivery.', image: 'https://images.unsplash.com/photo-1580674285054-bed31e145f59?fm=jpg&fit=crop&w=600&q=80' },
@@ -281,11 +281,11 @@ export const serviceDetails: ServiceDetail[] = [
     overviewTitle: 'What is Warehousing & Distribution?',
     overviewParagraphs: [
       'Warehousing and distribution form the foundation of modern supply chain management. Beyond simple storage, today\'s warehousing encompasses inventory management, order fulfillment, quality control, kitting, labeling, and multi-channel distribution — all coordinated through sophisticated warehouse management systems.',
-      'NexusRoute Global Logistics operates a network of strategically located warehousing facilities across key logistics hubs worldwide. Our facilities are equipped with advanced WMS technology, climate-controlled zones, high-security systems, and scalable layouts designed to grow with your business.',
+      'Next Trace Logistics operates a network of strategically located warehousing facilities across key logistics hubs worldwide. Our facilities are equipped with advanced WMS technology, climate-controlled zones, high-security systems, and scalable layouts designed to grow with your business.',
       'Whether you need short-term overflow storage, long-term inventory management, pick-and-pack fulfillment for e-commerce, or a complete third-party logistics (3PL) solution, our warehousing division delivers operational excellence that drives efficiency and reduces costs.',
     ],
     whyChooseTitle: 'Why Choose Professional Warehousing?',
-    whyChooseIntro: 'Outsourcing warehousing to NexusRoute Global Logistics unlocks significant operational and financial advantages:',
+    whyChooseIntro: 'Outsourcing warehousing to Next Trace Logistics unlocks significant operational and financial advantages:',
     benefits: [
       { icon: 'BarChart3', title: 'Inventory Optimization', description: 'Real-time inventory visibility, automated reorder alerts, FIFO/LIFO management, and cycle counting ensure your stock levels are always accurate and optimized.' },
       { icon: 'Thermometer', title: 'Climate-Controlled Storage', description: 'Temperature and humidity-controlled zones for pharmaceuticals, food products, electronics, and other sensitive goods requiring specific environmental conditions.' },
@@ -295,7 +295,7 @@ export const serviceDetails: ServiceDetail[] = [
       { icon: 'RotateCcw', title: 'Returns Management', description: 'Complete reverse logistics processing including inspection, restocking, refurbishment, and disposal — keeping your returns workflow efficient and cost-effective.' },
     ],
     serviceTypesTitle: 'Our Warehousing Services',
-    serviceTypesIntro: 'NexusRoute Global Logistics provides comprehensive warehousing and distribution solutions:',
+    serviceTypesIntro: 'Next Trace Logistics provides comprehensive warehousing and distribution solutions:',
     serviceTypes: [
       { title: 'General Warehousing', description: 'Flexible storage for general merchandise in secure, well-maintained facilities. Racking systems, bulk storage, and floor stacking options. Short-term and long-term contracts available.', image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?fm=jpg&fit=crop&w=600&q=80' },
       { title: 'E-Commerce Fulfillment', description: 'End-to-end order fulfillment for online retailers. Integration with Shopify, Amazon, WooCommerce, and other platforms. Pick, pack, ship, and track — all managed from our facilities.', image: 'https://images.unsplash.com/photo-1553413077-190dd305871c?fm=jpg&fit=crop&w=600&q=80' },
@@ -304,7 +304,7 @@ export const serviceDetails: ServiceDetail[] = [
       { title: 'Kitting & Value-Added Services', description: 'Custom kitting, assembly, labeling, repackaging, quality inspection, and gift wrapping. Transform your raw products into retail-ready inventory within our facilities.', image: 'https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?fm=jpg&fit=crop&w=600&q=80' },
       { title: 'Bonded Warehousing', description: 'Customs-bonded facilities for duty-deferred storage of imported goods. Reduce cash flow impact by paying duties only when goods are released for domestic distribution.', image: 'https://images.unsplash.com/photo-1494412574643-ff11b0a5eb19?fm=jpg&fit=crop&w=600&q=80' },
     ],
-    processTitle: 'How Warehousing Works with NexusRoute Global Logistics',
+    processTitle: 'How Warehousing Works with Next Trace Logistics',
     processIntro: 'Our warehousing operations follow rigorous standard operating procedures:',
     processSteps: [
       { step: 1, title: 'Onboarding & Setup', description: 'We assess your product specifications, volume forecasts, and operational requirements to design an optimal warehouse layout and workflow configuration.' },
@@ -321,7 +321,7 @@ export const serviceDetails: ServiceDetail[] = [
       { value: '15+', label: 'Global Hubs' },
     ],
     ctaTitle: 'Optimize Your Supply Chain',
-    ctaDescription: 'Let NexusRoute Global Logistics design a warehousing and distribution strategy that reduces costs, improves speed, and scales with your business.',
+    ctaDescription: 'Let Next Trace Logistics design a warehousing and distribution strategy that reduces costs, improves speed, and scales with your business.',
     galleryImages: [
       { src: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?fm=jpg&fit=crop&w=600&q=80', alt: 'Modern warehouse' },
       { src: 'https://images.unsplash.com/photo-1553413077-190dd305871c?fm=jpg&fit=crop&w=600&q=80', alt: 'Order fulfillment' },
@@ -338,7 +338,7 @@ export const serviceDetails: ServiceDetail[] = [
     overviewTitle: 'What is Specialized Cargo?',
     overviewParagraphs: [
       'Specialized cargo requires logistics expertise that goes far beyond standard shipping. It encompasses oversized and heavy-lift equipment, high-value goods, hazardous materials, temperature-sensitive pharmaceuticals, fine art, military-grade supplies, and any shipment requiring custom handling protocols.',
-      'NexusRoute Global Logistics\'s specialized cargo division brings together project logistics engineers, certified dangerous goods handlers, fine art specialists, and pharmaceutical logistics experts. We design bespoke transport solutions that address the unique challenges each specialized shipment presents.',
+      'Next Trace Logistics\'s specialized cargo division brings together project logistics engineers, certified dangerous goods handlers, fine art specialists, and pharmaceutical logistics experts. We design bespoke transport solutions that address the unique challenges each specialized shipment presents.',
       'From engineering route surveys for wind turbine blades to maintaining unbroken cold chains for life-saving biologics, our team has the experience, equipment, certifications, and global network to move your most critical and challenging cargo safely and on schedule.',
     ],
     whyChooseTitle: 'Why Choose Specialized Cargo Services?',
@@ -352,7 +352,7 @@ export const serviceDetails: ServiceDetail[] = [
       { icon: 'Users', title: 'Dedicated Project Team', description: 'Every specialized shipment receives a dedicated project manager and logistics team who coordinate all aspects from planning through execution and delivery.' },
     ],
     serviceTypesTitle: 'Our Specialized Cargo Services',
-    serviceTypesIntro: 'NexusRoute Global Logistics offers expert handling across a wide range of specialized cargo categories:',
+    serviceTypesIntro: 'Next Trace Logistics offers expert handling across a wide range of specialized cargo categories:',
     serviceTypes: [
       { title: 'Heavy-Lift & Project Cargo', description: 'Transport of oversized industrial equipment, turbines, transformers, and construction machinery. Route surveys, multi-axle trailers, crane operations, and police escorts for exceptional loads.', image: 'https://images.unsplash.com/photo-1565793298595-6a879b1d9492?fm=jpg&fit=crop&w=600&q=80' },
       { title: 'Pharmaceutical & Healthcare', description: 'GDP-compliant transport of medicines, vaccines, clinical trial materials, and medical devices. Active and passive temperature solutions, quality management systems, and full audit trails.', image: 'https://images.unsplash.com/photo-1587854692152-cbe660dbde88?fm=jpg&fit=crop&w=600&q=80' },
@@ -395,11 +395,11 @@ export const serviceDetails: ServiceDetail[] = [
     overviewTitle: 'What is Animal & Pet Transport?',
     overviewParagraphs: [
       'Animal and pet transport is a highly specialized logistics service dedicated to the safe, humane, and comfortable relocation of live animals — from beloved family pets and show-quality purebreds to exotic species, livestock, and laboratory animals. Unlike standard cargo, live animal transport demands meticulous attention to welfare, regulatory compliance, and environmental controls throughout every stage of the journey.',
-      'At NexusRoute Global Logistics, our Animal Transport Division is staffed by certified animal handlers, veterinary consultants, and logistics specialists who understand that your animals are not cargo — they are family. We design bespoke transport plans that prioritize animal welfare above all else, ensuring comfortable temperatures, proper ventilation, adequate hydration, and minimal stress from origin to destination.',
-      'Whether you\'re relocating internationally with your dog, shipping breeding livestock across state lines, transporting exotic reptiles for a zoological program, or moving laboratory animals under strict protocol, NexusRoute Global Logistics provides end-to-end solutions that comply with IATA Live Animals Regulations (LAR), USDA-APHIS requirements, CITES conventions, and all local animal welfare laws.',
+      'At Next Trace Logistics, our Animal Transport Division is staffed by certified animal handlers, veterinary consultants, and logistics specialists who understand that your animals are not cargo — they are family. We design bespoke transport plans that prioritize animal welfare above all else, ensuring comfortable temperatures, proper ventilation, adequate hydration, and minimal stress from origin to destination.',
+      'Whether you\'re relocating internationally with your dog, shipping breeding livestock across state lines, transporting exotic reptiles for a zoological program, or moving laboratory animals under strict protocol, Next Trace Logistics provides end-to-end solutions that comply with IATA Live Animals Regulations (LAR), USDA-APHIS requirements, CITES conventions, and all local animal welfare laws.',
     ],
     whyChooseTitle: 'Why Choose Professional Animal Transport?',
-    whyChooseIntro: 'Transporting live animals requires expertise, certified equipment, and unwavering commitment to animal welfare. Here\'s why NexusRoute Global Logistics stands apart:',
+    whyChooseIntro: 'Transporting live animals requires expertise, certified equipment, and unwavering commitment to animal welfare. Here\'s why Next Trace Logistics stands apart:',
     benefits: [
       { icon: 'Heart', title: 'Animal Welfare First', description: 'Every transport plan is designed around the animal\'s comfort and safety. Climate-controlled environments, species-appropriate crates, scheduled feeding stops, and constant welfare monitoring throughout the journey.' },
       { icon: 'ShieldCheck', title: 'Fully Certified & Compliant', description: 'IATA LAR-certified, USDA-APHIS registered, and compliant with CITES and all international animal import/export regulations. Licensed veterinary oversight at every stage of transport.' },
@@ -409,7 +409,7 @@ export const serviceDetails: ServiceDetail[] = [
       { icon: 'FileCheck', title: 'Complete Documentation', description: 'We manage all veterinary certificates, health inspections, import/export permits, microchip verification, vaccination records, and quarantine arrangements required for domestic and international moves.' },
     ],
     serviceTypesTitle: 'Our Animal Transport Services',
-    serviceTypesIntro: 'NexusRoute Global Logistics offers comprehensive animal transport solutions tailored to every species, size, and destination:',
+    serviceTypesIntro: 'Next Trace Logistics offers comprehensive animal transport solutions tailored to every species, size, and destination:',
     serviceTypes: [
       { title: 'Domestic Pet Relocation', description: 'Door-to-door transport for dogs, cats, and small pets within the country. Includes home pickup, IATA-approved crate provisioning, comfort accessories, and delivery to your new residence. Ideal for family relocations, military PCS moves, and long-distance adoptions.', image: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?fm=jpg&fit=crop&w=600&q=80' },
       { title: 'International Pet Shipping', description: 'Full-service global pet relocation including veterinary pre-travel exams, import permit applications, customs clearance, airline coordination, and quarantine management at destination. We navigate complex country-specific requirements for seamless cross-border moves.', image: 'https://images.unsplash.com/photo-1560807707-8cc77767d783?fm=jpg&fit=crop&w=600&q=80' },
@@ -418,7 +418,7 @@ export const serviceDetails: ServiceDetail[] = [
       { title: 'Equine Transport', description: 'Premium horse transport in climate-controlled, padded stalls with individual partitions. Experienced equine handlers, scheduled rest and water stops, and real-time GPS tracking. Services include competition transport, breeding transfers, and international equine relocation.', image: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?fm=jpg&fit=crop&w=600&q=80' },
       { title: 'Laboratory & Research Animals', description: 'GLP-compliant transport of laboratory animals under strict biosecurity and welfare protocols. Temperature-controlled vehicles, sterile enclosures, chain-of-custody documentation, and IACUC-approved transport plans for mice, rats, rabbits, and other research species.', image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?fm=jpg&fit=crop&w=600&q=80' },
     ],
-    processTitle: 'How Animal Transport Works with NexusRoute Global Logistics',
+    processTitle: 'How Animal Transport Works with Next Trace Logistics',
     processIntro: 'Our animal transport process is built on safety, compliance, and compassion at every step:',
     processSteps: [
       { step: 1, title: 'Consultation & Assessment', description: 'We gather details about your animal — species, breed, age, health status, temperament, and special needs. Our team assesses destination requirements, travel routes, and optimal transport methods to create a personalized plan.' },

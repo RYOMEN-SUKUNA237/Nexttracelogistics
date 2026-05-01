@@ -32,7 +32,7 @@ app.use(cors({
     if (origin.startsWith('http://localhost:')) return cb(null, true);
     
     // Always allow the production domains
-    if (origin.includes('nexusroutegloballogistics.com')) return cb(null, true);
+    if (origin.includes('nexttrace.logistics')) return cb(null, true);
     if (origin.includes('vercel.app')) return cb(null, true);
     
     // Allow explicitly defined FRONTEND_URL if present
@@ -99,12 +99,12 @@ app.use('/api/emails', emailRoutes);
 
 // Root route — minimal, no API map exposed
 app.get('/', (req, res) => {
-  res.json({ name: 'NexusRoute API', status: 'running' });
+  res.json({ name: 'Next Trace Logistics API', status: 'running' });
 });
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), version: '1.0.0' });
+  res.json({ status: 'ok', timestamp: new Date().toISOString(), version: '2.0.0', name: 'Next Trace Logistics API' });
 });
 
 // 404 handler — don't reflect the URL back (prevents reflected content attacks)
@@ -124,7 +124,7 @@ app.use((err, req, res, next) => {
 // ─── START SERVER ────────────────────────────────────────────────────
 if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => {
-    console.log(`\n🚀 NexusRoute API Server running on http://localhost:${PORT}`);
+    console.log(`\n🚀 Next Trace Logistics API Server running on http://localhost:${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
     console.log(`\nAPI Endpoints:`);
     console.log(`  POST   /api/auth/register`);

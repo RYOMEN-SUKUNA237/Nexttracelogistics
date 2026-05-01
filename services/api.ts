@@ -2,15 +2,15 @@ const API_BASE = '/api';
 
 // ─── TOKEN MANAGEMENT ────────────────────────────────────────────────
 export function getToken(): string | null {
-  return localStorage.getItem('aura_token');
+  return localStorage.getItem('ntl_token');
 }
 
 export function setToken(token: string): void {
-  localStorage.setItem('aura_token', token);
+  localStorage.setItem('ntl_token', token);
 }
 
 export function removeToken(): void {
-  localStorage.removeItem('aura_token');
+  localStorage.removeItem('ntl_token');
 }
 
 export function isAuthenticated(): boolean {

@@ -81,8 +81,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <div className="hidden lg:block bg-[#0a192f] text-gray-300 text-xs py-2">
         <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
           <div className="flex items-center gap-6">
-            <span className="flex items-center gap-1.5"><Phone className="w-3 h-3" /> 202-846-4800</span>
-            <span className="flex items-center gap-1.5"><Mail className="w-3 h-3" /> nexusroutegloballogistics@gmail.com</span>
+            <span className="flex items-center gap-1.5"><Phone className="w-3 h-3" /> +1 (307) 200-8344</span>
+            <span className="flex items-center gap-1.5"><Mail className="w-3 h-3" /> nexttrace.logistics@gmail.com</span>
             <span className="flex items-center gap-1.5"><MapPin className="w-3 h-3" /> Atlanta, GA</span>
           </div>
           <div className="flex items-center gap-4">
@@ -113,7 +113,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             className="text-xl lg:text-2xl font-bold text-[#0a192f] tracking-tight flex items-center gap-2 flex-shrink-0"
           >
             <img src={logoImg} alt="Logo" className="w-8 h-8 object-cover rounded-sm" />
-            <span>NEXUSROUTE</span>
+            <span>NEXT TRACE</span>
           </a>
 
           {/* Desktop Links */}
@@ -224,10 +224,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <div className="sm:col-span-2 lg:col-span-1">
               <div className="flex items-center gap-2 mb-4">
                 <img src={logoImg} alt="Logo" className="w-8 h-8 object-cover rounded-sm" />
-                <span className="text-xl font-bold">NEXUSROUTE</span>
+                <span className="text-xl font-bold">NEXT TRACE</span>
               </div>
               <p className="text-gray-400 text-sm leading-relaxed mb-6">
                 Engineering global connectivity through precision logistics and unrivaled security since 2010.
+              </p>
+              <p className="text-gray-400 text-sm leading-relaxed mb-6">
+                Next Trace Logistics — your trusted partner for every mile.
               </p>
               <div className="flex items-center gap-3">
                 <a href="#" className="w-9 h-9 bg-white/10 rounded-full flex items-center justify-center hover:bg-blue-600 transition-colors"><Facebook className="w-4 h-4" /></a>
@@ -277,11 +280,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 </li>
                 <li className="flex items-center gap-3">
                   <Phone className="w-4 h-4 flex-shrink-0 text-blue-400" />
-                  <span>202-846-4800</span>
+                  <span>+1 (307) 200-8344</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <Mail className="w-4 h-4 flex-shrink-0 text-blue-400" />
-                  <span>nexusroutegloballogistics@gmail.com</span>
+                  <span>nexttrace.logistics@gmail.com</span>
                 </li>
               </ul>
             </div>
@@ -291,7 +294,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         {/* Bottom Bar */}
         <div className="border-t border-gray-800">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-gray-500">
-            <p>© {new Date().getFullYear()} NexusRoute Global Logistics. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} Next Trace Logistics. All rights reserved.</p>
             <div className="flex gap-6">
               <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
               <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
