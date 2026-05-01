@@ -300,15 +300,15 @@ const TrackMiniMap: React.FC = () => {
     if (!containerRef.current || !MAPBOX_TOKEN || mapRef.current) return;
     initMapbox();
 
-    // Demo route: New York → Chicago
-    const origin: [number, number] = [-74.006, 40.7128];
-    const dest: [number, number] = [-87.6298, 41.8781];
+    // Demo route: Dubai → London
+    const origin: [number, number] = [55.2708, 25.2048]; // Dubai
+    const dest: [number, number] = [-0.1276, 51.5074];   // London
 
     const m = new mapboxgl.Map({
       container: containerRef.current,
       style: 'mapbox://styles/mapbox/dark-v11',
-      center: [-80.5, 41.3],
-      zoom: 4.5,
+      center: [27.5, 38.3], // Midpoint roughly over Eastern Mediterranean/Turkey
+      zoom: 2.5,
       interactive: false,
       attributionControl: false,
     });
@@ -400,7 +400,7 @@ const TrackMiniMap: React.FC = () => {
       <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end z-10 pointer-events-none">
         <div className="bg-[#0a192f]/85 backdrop-blur-md px-3 py-2 rounded-sm border border-gray-700/50">
           <p className="text-[10px] text-gray-400 uppercase tracking-wider">Live Demo</p>
-          <p className="font-mono text-xs text-blue-400">New York → Chicago</p>
+          <p className="font-mono text-xs text-blue-400">Dubai → London</p>
         </div>
         <div className="bg-[#0a192f]/85 backdrop-blur-md p-2 rounded-sm border border-gray-700/50">
           <MapPin className="w-4 h-4 text-gray-400" />
