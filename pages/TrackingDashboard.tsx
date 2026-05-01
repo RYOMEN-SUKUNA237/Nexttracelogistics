@@ -101,9 +101,12 @@ const TrackingDashboard: React.FC = () => {
 
     const m = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/light-v11',
+      style: 'mapbox://styles/mapbox/standard',
       center: [(s.origin_lng + s.dest_lng) / 2, (s.origin_lat + s.dest_lat) / 2],
-      zoom: 4,
+      zoom: 15.5,
+      pitch: 60,
+      bearing: -20,
+      antialias: true
     });
 
     m.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');

@@ -122,10 +122,12 @@ const TrackMap: React.FC<TrackMapProps> = ({ shipments, setShipments, onRefresh 
 
     const m = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/dark-v11',
-      center: [0, 20],
-      zoom: 1.8,
-      projection: 'globe',
+      style: 'mapbox://styles/mapbox/standard',
+      center: [-95.3698, 29.7604], // Default to Houston
+      zoom: 13,
+      pitch: 60,
+      bearing: -20,
+      antialias: true
     });
 
     m.addControl(new mapboxgl.NavigationControl({ showCompass: true }), 'top-right');
@@ -398,7 +400,7 @@ const TrackMap: React.FC<TrackMapProps> = ({ shipments, setShipments, onRefresh 
     const marker = markersRef.current.get(s.trackingId);
     if (marker && map.current) {
       const lngLat = marker.getLngLat();
-      map.current.flyTo({ center: [lngLat.lng, lngLat.lat], zoom: 8, duration: 1500 });
+      map.current.flyTo({ center: [lngLat.lng, lngLat.lat], zoom: 15.5, pitch: 60, bearing: -20, duration: 1500 });
       marker.togglePopup();
     }
   };
