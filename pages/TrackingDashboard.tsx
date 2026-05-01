@@ -77,8 +77,8 @@ const TrackingDashboard: React.FC = () => {
         } else if (s.origin_lat && s.origin_lng && s.dest_lat && s.dest_lng) {
           const p = progress / 100;
           currentMarkerRef.current.setLngLat([
-            s.origin_lng + (s.dest_lng - s.origin_lng) * p,
-            s.origin_lat + (s.dest_lat - s.origin_lat) * p,
+            Number(s.origin_lng) + (Number(s.dest_lng) - Number(s.origin_lng)) * p,
+            Number(s.origin_lat) + (Number(s.dest_lat) - Number(s.origin_lat)) * p,
           ]);
         }
       }
@@ -102,7 +102,7 @@ const TrackingDashboard: React.FC = () => {
     const m = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/standard',
-      center: [(s.origin_lng + s.dest_lng) / 2, (s.origin_lat + s.dest_lat) / 2],
+      center: [(Number(s.origin_lng) + Number(s.dest_lng)) / 2, (Number(s.origin_lat) + Number(s.dest_lat)) / 2],
       zoom: 15.5,
       pitch: 60,
       bearing: -20,
@@ -115,7 +115,7 @@ const TrackingDashboard: React.FC = () => {
       // Route line — draw from fetched or stored route, or fallback to straight line
       const geometry = routeGeometry || {
         type: 'LineString',
-        coordinates: [[s.origin_lng, s.origin_lat], [s.dest_lng, s.dest_lat]],
+        coordinates: [[Number(s.origin_lng), Number(s.origin_lat)], [Number(s.dest_lng), Number(s.dest_lat)]],
       };
 
       m.addSource('route', {
@@ -141,7 +141,7 @@ const TrackingDashboard: React.FC = () => {
       const originEl = document.createElement('div');
       originEl.innerHTML = `<div style="width:14px;height:14px;border-radius:50%;background:#10b981;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.2);"></div>`;
       new mapboxgl.Marker({ element: originEl })
-        .setLngLat([s.origin_lng, s.origin_lat])
+        .setLngLat([Number(s.origin_lng), Number(s.origin_lat)])
         .setPopup(new mapboxgl.Popup({ offset: 15 }).setHTML(`<div style="padding:6px;font-size:12px;"><strong>Origin</strong><br/>${s.origin}</div>`))
         .addTo(m);
 
@@ -149,7 +149,7 @@ const TrackingDashboard: React.FC = () => {
       const destEl = document.createElement('div');
       destEl.innerHTML = `<div style="width:14px;height:14px;border-radius:50%;background:#ef4444;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.2);"></div>`;
       new mapboxgl.Marker({ element: destEl })
-        .setLngLat([s.dest_lng, s.dest_lat])
+        .setLngLat([Number(s.dest_lng), Number(s.dest_lat)])
         .setPopup(new mapboxgl.Popup({ offset: 15 }).setHTML(`<div style="padding:6px;font-size:12px;"><strong>Destination</strong><br/>${s.destination}</div>`))
         .addTo(m);
 
@@ -163,8 +163,8 @@ const TrackingDashboard: React.FC = () => {
       } else {
         const p = initialProgress / 100;
         currentPos = [
-          s.origin_lng + (s.dest_lng - s.origin_lng) * p,
-          s.origin_lat + (s.dest_lat - s.origin_lat) * p,
+          Number(s.origin_lng) + (Number(s.dest_lng) - Number(s.origin_lng)) * p,
+          Number(s.origin_lat) + (Number(s.dest_lat) - Number(s.origin_lat)) * p,
         ];
       }
 
@@ -184,8 +184,8 @@ const TrackingDashboard: React.FC = () => {
 
       // Fit bounds
       const bounds = new mapboxgl.LngLatBounds();
-      bounds.extend([s.origin_lng, s.origin_lat]);
-      bounds.extend([s.dest_lng, s.dest_lat]);
+      bounds.extend([Number(s.origin_lng), Number(s.origin_lat)]);
+      bounds.extend([Number(s.dest_lng), Number(s.dest_lat)]);
       m.fitBounds(bounds, { padding: 60, duration: 1000 });
     };
 
@@ -197,8 +197,8 @@ const TrackingDashboard: React.FC = () => {
         // Try to fetch route dynamically (road route with great circle arc fallback)
         try {
           const result = await getRouteWithFallback(
-            [s.origin_lng, s.origin_lat],
-            [s.dest_lng, s.dest_lat]
+            [Number(s.origin_lng), Number(s.origin_lat)],
+            [Number(s.dest_lng), Number(s.dest_lat)]
           );
           addRouteAndMarkers(result?.geometry || null);
         } catch {

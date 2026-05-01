@@ -70,7 +70,7 @@ const TrackMap: React.FC<TrackMapProps> = ({ shipments, setShipments, onRefresh 
           const d = dataMap[tid];
           if (!d.route_data && d.origin_lat && d.origin_lng && d.dest_lat && d.dest_lng && !routesFetchedRef.current.has(tid)) {
             routesFetchedRef.current.add(tid);
-            getRouteWithFallback([d.origin_lng, d.origin_lat], [d.dest_lng, d.dest_lat]).then(result => {
+            getRouteWithFallback([Number(d.origin_lng), Number(d.origin_lat)], [Number(d.dest_lng), Number(d.dest_lat)]).then(result => {
               if (result?.geometry) {
                 setFullShipmentData(prev => ({
                   ...prev,
@@ -253,8 +253,12 @@ const TrackMap: React.FC<TrackMapProps> = ({ shipments, setShipments, onRefresh 
         markerLat = pos[1];
       } else if (hasCoords) {
         const p = progress / 100;
-        markerLng = fullData.origin_lng + (fullData.dest_lng - fullData.origin_lng) * p;
-        markerLat = fullData.origin_lat + (fullData.dest_lat - fullData.origin_lat) * p;
+        const oLng = Number(fullData.origin_lng);
+        const dLng = Number(fullData.dest_lng);
+        const oLat = Number(fullData.origin_lat);
+        const dLat = Number(fullData.dest_lat);
+        markerLng = oLng + (dLng - oLng) * p;
+        markerLat = oLat + (dLat - oLat) * p;
       } else {
         return;
       }
@@ -280,12 +284,12 @@ const TrackMap: React.FC<TrackMapProps> = ({ shipments, setShipments, onRefresh 
       if (hasCoords) {
         const originEl = document.createElement('div');
         originEl.innerHTML = `<div style="width:8px;height:8px;border-radius:50%;background:#10b981;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.2);"></div>`;
-        const om = new mapboxgl.Marker({ element: originEl }).setLngLat([fullData.origin_lng, fullData.origin_lat]).addTo(m);
+        const om = new mapboxgl.Marker({ element: originEl }).setLngLat([Number(fullData.origin_lng), Number(fullData.origin_lat)]).addTo(m);
         auxMarkersRef.current.push(om);
 
         const destEl = document.createElement('div');
         destEl.innerHTML = `<div style="width:8px;height:8px;border-radius:50%;background:#ef4444;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.2);"></div>`;
-        const dm = new mapboxgl.Marker({ element: destEl }).setLngLat([fullData.dest_lng, fullData.dest_lat]).addTo(m);
+        const dm = new mapboxgl.Marker({ element: destEl }).setLngLat([Number(fullData.dest_lng), Number(fullData.dest_lat)]).addTo(m);
         auxMarkersRef.current.push(dm);
       }
 
@@ -337,8 +341,12 @@ const TrackMap: React.FC<TrackMapProps> = ({ shipments, setShipments, onRefresh 
         lat = pos[1];
       } else if (hasCoords) {
         const p = progress / 100;
-        lng = fullData.origin_lng + (fullData.dest_lng - fullData.origin_lng) * p;
-        lat = fullData.origin_lat + (fullData.dest_lat - fullData.origin_lat) * p;
+        const oLng = Number(fullData.origin_lng);
+        const dLng = Number(fullData.dest_lng);
+        const oLat = Number(fullData.origin_lat);
+        const dLat = Number(fullData.dest_lat);
+        lng = oLng + (dLng - oLng) * p;
+        lat = oLat + (dLat - oLat) * p;
       } else {
         return;
       }
