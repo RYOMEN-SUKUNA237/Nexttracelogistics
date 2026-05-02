@@ -2,7 +2,7 @@ const express = require('express');
 const { pool } = require('../db');
 const { authMiddleware } = require('../middleware/auth');
 const { generateTrackingId } = require('../utils/generators');
-const { sendMail, buildShipmentCreationEmail, buildShipmentPauseEmail } = require('../utils/mailer');
+const { sendMail, buildShipmentCreationEmail, buildShipmentPauseEmail, buildShipmentStatusChangeEmail } = require('../utils/mailer');
 let createTrackingUpdateDraft;
 try {
   createTrackingUpdateDraft = require('./emails').createTrackingUpdateDraft;
@@ -323,6 +323,26 @@ router.patch('/:id/status', authMiddleware, async (req, res) => {
     const { rows: updated } = await pool.query('SELECT * FROM shipments WHERE id = $1', [shipment.id]);
     res.json({ shipment: updated[0] });
 
+    // ── Send status update emails to sender & receiver (fire-and-forget) ──
+    setImmediate(async () => {
+      try {
+        const recipients = [];
+        if (shipment.sender_email) recipients.push({ email: shipment.sender_email, role: 'sender' });
+        if (shipment.receiver_email) recipients.push({ email: shipment.receiver_email, role: 'receiver' });
+        for (const r of recipients) {
+          const emailData = buildShipmentStatusChangeEmail({
+            shipment,
+            newStatus: status,
+            role: r.role,
+            notes: notes || null,
+          });
+          await sendMail({ to: r.email, subject: emailData.subject, html: emailData.html, text: emailData.text });
+        }
+      } catch (emailErr) {
+        console.error('Status change email error:', emailErr.message);
+      }
+    });
+
     // Create email drafts for tracking subscribers (fire-and-forget)
     if (createTrackingUpdateDraft) {
       const statusLabels = {
@@ -432,18 +452,20 @@ router.patch('/:id/pause', authMiddleware, async (req, res) => {
     const { rows: updated } = await pool.query('SELECT * FROM shipments WHERE id = $1', [shipment.id]);
     res.json({ shipment: updated[0] });
 
-    // ── Direct pause/resume email to receiver (fire-and-forget) ──────
+    // ── Send pause/resume email to BOTH sender & receiver (fire-and-forget) ──
     setImmediate(async () => {
       try {
-        const recipientEmail = shipment.receiver_email || shipment.sender_email;
-        if (recipientEmail) {
+        const recipients = [];
+        if (shipment.sender_email) recipients.push(shipment.sender_email);
+        if (shipment.receiver_email && shipment.receiver_email !== shipment.sender_email) recipients.push(shipment.receiver_email);
+        for (const email of recipients) {
           const emailData = buildShipmentPauseEmail({
             shipment,
             isPaused: newPaused,
             pauseCategory: newPaused ? (pause_category || null) : null,
             pauseReason: newPaused ? (pause_reason || null) : null,
           });
-          await sendMail({ to: recipientEmail, subject: emailData.subject, html: emailData.html, text: emailData.text });
+          await sendMail({ to: email, subject: emailData.subject, html: emailData.html, text: emailData.text });
         }
       } catch (emailErr) {
         console.error('Pause email error:', emailErr.message);

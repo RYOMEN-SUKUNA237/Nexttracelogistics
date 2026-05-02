@@ -407,6 +407,97 @@ function buildShipmentPauseEmail({ shipment, isPaused, pauseCategory, pauseReaso
   };
 }
 
+/**
+ * Build a shipment status change notification email for sender/receiver.
+ */
+function buildShipmentStatusChangeEmail({ shipment, newStatus, role, notes }) {
+  const trackingLink = `${FRONTEND_URL}/track/${shipment.tracking_id}`;
+  const isSender = role === 'sender';
+
+  const statusLabels = {
+    'pending': 'Order Confirmed',
+    'picked-up': 'Picked Up by Courier',
+    'in-transit': 'In Transit',
+    'out-for-delivery': 'Out for Delivery',
+    'delivered': 'Delivered Successfully',
+    'returned': 'Returned to Sender',
+  };
+  const statusEmojis = {
+    'pending': '📋', 'picked-up': '📦', 'in-transit': '🚚',
+    'out-for-delivery': '📍', 'delivered': '✅', 'returned': '↩️',
+  };
+  const statusColors = {
+    'pending': '#6b7280', 'picked-up': '#8b5cf6', 'in-transit': '#3b82f6',
+    'out-for-delivery': '#06b6d4', 'delivered': '#10b981', 'returned': '#ef4444',
+  };
+
+  const label = statusLabels[newStatus] || newStatus;
+  const emoji = statusEmojis[newStatus] || '📦';
+  const color = statusColors[newStatus] || '#3b82f6';
+  const recipientName = isSender ? shipment.sender_name : shipment.receiver_name;
+
+  const deliveredSection = newStatus === 'delivered' ? `
+    <div class="info-box" style="border-left-color:#10b981;">
+      <p style="margin:0;color:#1f2937;font-size:14px;">✅ Your shipment has been successfully delivered to <strong>${shipment.destination}</strong>. Thank you for choosing ${COMPANY_NAME}!</p>
+    </div>` : '';
+
+  const returnedSection = newStatus === 'returned' ? `
+    <div class="info-box" style="border-left-color:#ef4444;">
+      <p style="margin:0;color:#1f2937;font-size:14px;">↩️ This shipment has been returned to the sender. If you have questions, please contact our support team.</p>
+    </div>` : '';
+
+  const notesSection = notes ? `
+    <div class="info-box" style="border-left-color:#8b5cf6;">
+      <p style="margin:0 0 4px 0;font-size:12px;color:#6b7280;text-transform:uppercase;font-weight:600;">Admin Notes</p>
+      <p style="margin:0;color:#1f2937;font-size:14px;">${notes}</p>
+    </div>` : '';
+
+  const html = emailTemplate({
+    title: `Shipment Update — ${shipment.tracking_id}`,
+    preheader: `${emoji} Your shipment ${shipment.tracking_id} is now: ${label}`,
+    bodyHtml: `
+      <h2 style="color:#0a192f;font-size:20px;margin:0 0 8px 0;">${emoji} Shipment Status Update</h2>
+      <p style="color:#4a5568;font-size:14px;line-height:1.6;margin:0 0 20px 0;">
+        Hello ${recipientName},<br>
+        We have an update on your shipment. The current status has been changed to:
+      </p>
+
+      <div style="background:#f8f9fb;border-radius:8px;padding:20px;text-align:center;margin-bottom:20px;">
+        <p style="margin:0 0 4px;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;">Tracking Number</p>
+        <p style="margin:0 0 16px;font-size:22px;font-weight:800;font-family:monospace;color:#0a192f;">${shipment.tracking_id}</p>
+        <div style="display:inline-block;padding:10px 24px;border-radius:24px;background:${color}1a;border:2px solid ${color}40;">
+          <span style="color:${color};font-size:15px;font-weight:700;">${emoji} ${label}</span>
+        </div>
+      </div>
+
+      <div class="info-box">
+        <p style="margin:0 0 8px 0;font-size:12px;color:#6b7280;text-transform:uppercase;font-weight:600;">📍 Route</p>
+        <p style="margin:0;color:#1f2937;font-size:14px;">
+          <strong>${shipment.origin}</strong> → <strong>${shipment.destination}</strong>
+        </p>
+      </div>
+
+      ${deliveredSection}
+      ${returnedSection}
+      ${notesSection}
+
+      <hr class="divider">
+      <div style="text-align:center;">
+        <a href="${trackingLink}" class="btn" style="color:#ffffff;">Track My Shipment →</a>
+      </div>
+      <p style="color:#9ca3af;font-size:12px;margin-top:20px;text-align:center;">
+        Questions? Contact us at <a href="mailto:${COMPANY_EMAIL}" style="color:#3b82f6;">${COMPANY_EMAIL}</a>
+      </p>
+    `,
+  });
+
+  return {
+    subject: `${emoji} Shipment ${label} — ${shipment.tracking_id} | ${COMPANY_NAME}`,
+    html,
+    text: `Shipment ${shipment.tracking_id} status update: ${label}. Route: ${shipment.origin} → ${shipment.destination}. Track at: ${trackingLink}`,
+  };
+}
+
 module.exports = {
   sendMail,
   emailTemplate,
@@ -414,6 +505,7 @@ module.exports = {
   buildTrackingUpdateEmail,
   buildShipmentCreationEmail,
   buildShipmentPauseEmail,
+  buildShipmentStatusChangeEmail,
   FRONTEND_URL,
   COMPANY_NAME,
   COMPANY_EMAIL,
