@@ -297,8 +297,10 @@ const TrackMiniMap: React.FC = () => {
   const animRef = useRef<number>(0);
 
   useEffect(() => {
-    if (!containerRef.current || !MAPBOX_TOKEN || mapRef.current) return;
-    initMapbox();
+    if (!containerRef.current || mapRef.current) return;
+    const token = import.meta.env.VITE_MAPBOX_TOKEN as string;
+    if (!token) return;
+    mapboxgl.accessToken = token;
 
     // Demo route: Dubai → London
     const origin: [number, number] = [55.2708, 25.2048]; // Dubai
@@ -382,20 +384,8 @@ const TrackMiniMap: React.FC = () => {
 
   return (
     <div className="relative w-full h-full">
-      {MAPBOX_TOKEN ? (
-        <div ref={containerRef} className="absolute inset-0 rounded-sm" />
-      ) : (
-        <>
-          <div className="absolute inset-0 opacity-30 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:20px_20px]" />
-          <svg className="absolute inset-0 w-full h-full pointer-events-none">
-            <path d="M 40 280 Q 200 80 400 180 T 700 120" fill="none" stroke="#0a192f" strokeWidth="3" strokeDasharray="6 6" />
-          </svg>
-          <div className="absolute top-[45%] left-[65%] transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center">
-            <div className="w-4 h-4 bg-blue-500 rounded-full animate-ping absolute" />
-            <div className="w-3 h-3 bg-white rounded-full relative z-10 shadow-lg border-2 border-blue-500" />
-          </div>
-        </>
-      )}
+      {/* Container always rendered so ref is always available */}
+      <div ref={containerRef} className="absolute inset-0 rounded-sm" />
       {/* Overlay info */}
       <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end z-10 pointer-events-none">
         <div className="bg-[#0a192f]/85 backdrop-blur-md px-3 py-2 rounded-sm border border-gray-700/50">
