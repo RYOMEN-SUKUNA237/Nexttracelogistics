@@ -8,13 +8,13 @@ const transporter = nodemailer.createTransport({
   port: parseInt(process.env.SMTP_PORT || '587'),
   secure: false,
   auth: {
-    user: process.env.SMTP_USER || process.env.COMPANY_EMAIL || 'nexttrace.logistics@gmail.com',
+    user: process.env.SMTP_USER || process.env.COMPANY_EMAIL || 'nexttracelogistics@gmail.com',
     pass: process.env.SMTP_PASS || '',
   },
 });
 
 const COMPANY_NAME = 'Next Trace Logistics';
-const COMPANY_EMAIL = process.env.COMPANY_EMAIL || 'nexttrace.logistics@gmail.com';
+const COMPANY_EMAIL = process.env.COMPANY_EMAIL || 'nexttracelogistics@gmail.com';
 const COMPANY_PHONE = '+1 (307) 200-8344';
 const COMPANY_ADDRESS = 'Atlanta, GA';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://nexttrace.logistics';

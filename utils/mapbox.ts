@@ -4,7 +4,10 @@ import length from '@turf/length';
 import { lineString } from '@turf/helpers';
 
 declare const __MAPBOX_TOKEN__: string;
-export const MAPBOX_TOKEN = (typeof __MAPBOX_TOKEN__ !== 'undefined' ? __MAPBOX_TOKEN__ : '');
+export const MAPBOX_TOKEN =
+  (typeof __MAPBOX_TOKEN__ !== 'undefined' && __MAPBOX_TOKEN__)
+    ? __MAPBOX_TOKEN__
+    : ((import.meta as any).env?.VITE_MAPBOX_TOKEN ?? '');
 
 export function initMapbox() {
   if (MAPBOX_TOKEN) {

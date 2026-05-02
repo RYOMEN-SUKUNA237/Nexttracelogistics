@@ -297,10 +297,8 @@ const TrackMiniMap: React.FC = () => {
   const animRef = useRef<number>(0);
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
-    const token = import.meta.env.VITE_MAPBOX_TOKEN as string;
-    if (!token) return;
-    mapboxgl.accessToken = token;
+    if (!containerRef.current || !MAPBOX_TOKEN || mapRef.current) return;
+    initMapbox();
 
     // Demo route: Dubai → London
     const origin: [number, number] = [55.2708, 25.2048]; // Dubai
@@ -748,7 +746,7 @@ const ContactSection: React.FC = () => (
                 </div>
                 <div>
                   <h4 className="font-semibold text-white text-sm">Email</h4>
-                  <p className="text-sm text-gray-400 mt-1">nexttrace.logistics@gmail.com</p>
+                  <p className="text-sm text-gray-400 mt-1">nexttracelogistics@gmail.com</p>
                 </div>
               </div>
               <div className="flex items-start gap-4">
