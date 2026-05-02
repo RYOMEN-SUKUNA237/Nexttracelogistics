@@ -728,7 +728,7 @@ const ContactSection: React.FC = () => (
                 </div>
                 <div>
                   <h4 className="font-semibold text-white text-sm">Headquarters</h4>
-                  <p className="text-sm text-gray-400 mt-1">Atlanta, GA</p>
+                  <p className="text-sm text-gray-400 mt-1">Wyoming</p>
                 </div>
               </div>
               <div className="flex items-start gap-4">

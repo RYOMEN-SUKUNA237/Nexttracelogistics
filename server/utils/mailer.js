@@ -16,7 +16,7 @@ const transporter = nodemailer.createTransport({
 const COMPANY_NAME = 'Next Trace Logistics';
 const COMPANY_EMAIL = process.env.COMPANY_EMAIL || 'nexttracelogistics@gmail.com';
 const COMPANY_PHONE = '+1 (307) 200-8344';
-const COMPANY_ADDRESS = 'Atlanta, GA';
+const COMPANY_ADDRESS = 'Wyoming';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://nexttrace.logistics';
 
 /**
