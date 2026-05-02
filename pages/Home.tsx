@@ -295,95 +295,117 @@ const TrackMiniMap: React.FC = () => {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
   const animRef = useRef<number>(0);
+  const [mapReady, setMapReady] = useState(false);
 
   useEffect(() => {
-    if (!containerRef.current || !MAPBOX_TOKEN || mapRef.current) return;
-    initMapbox();
+    // Delay map init to let the Reveal animation finish and container get real dimensions
+    const timer = setTimeout(() => {
+      if (!containerRef.current || mapRef.current) return;
 
-    // Demo route: Dubai → London
-    const origin: [number, number] = [55.2708, 25.2048]; // Dubai
-    const dest: [number, number] = [-0.1276, 51.5074];   // London
+      // Resolve token from multiple sources for maximum compatibility
+      const token = MAPBOX_TOKEN || (import.meta as any).env?.VITE_MAPBOX_TOKEN || '';
+      if (!token) return;
+      (mapboxgl as any).accessToken = token;
 
-    const m = new mapboxgl.Map({
-      container: containerRef.current,
-      style: 'mapbox://styles/mapbox/dark-v11',
-      center: [27.5, 38.3], // Midpoint roughly over Eastern Mediterranean/Turkey
-      zoom: 2.5,
-      interactive: false,
-      attributionControl: false,
-    });
+      try {
+        // Demo route: Dubai → London
+        const origin: [number, number] = [55.2708, 25.2048]; // Dubai
+        const dest: [number, number] = [-0.1276, 51.5074];   // London
 
-    m.on('load', async () => {
-      // Fetch true road route
-      const result = await getRouteWithFallback(origin, dest);
-      const geometry = result?.geometry || { type: 'LineString', coordinates: [origin, dest] };
-      const coords = geometry.coordinates as [number, number][];
+        const m = new mapboxgl.Map({
+          container: containerRef.current,
+          style: 'mapbox://styles/mapbox/dark-v11',
+          center: [27.5, 38.3],
+          zoom: 2.5,
+          interactive: false,
+          attributionControl: false,
+        });
 
-      // Route glow
-      m.addSource('demo-route', { type: 'geojson', data: { type: 'Feature', properties: {}, geometry } as any });
-      m.addLayer({
-        id: 'demo-glow', type: 'line', source: 'demo-route',
-        layout: { 'line-join': ROUTE_STYLE.lineJoin, 'line-cap': ROUTE_STYLE.lineCap },
-        paint: { 'line-color': ROUTE_STYLE.glowColor, 'line-width': ROUTE_STYLE.glowWidth, 'line-opacity': ROUTE_STYLE.glowOpacity },
-      });
-      // Route line
-      m.addLayer({
-        id: 'demo-line', type: 'line', source: 'demo-route',
-        layout: { 'line-join': ROUTE_STYLE.lineJoin, 'line-cap': ROUTE_STYLE.lineCap },
-        paint: { 'line-color': ROUTE_STYLE.color, 'line-width': ROUTE_STYLE.width, 'line-opacity': ROUTE_STYLE.opacity },
-      });
+        m.on('load', async () => {
+          setMapReady(true);
+          // Ensure map knows its real size after Reveal animation
+          m.resize();
 
-      // Origin dot
-      const oEl = document.createElement('div');
-      oEl.innerHTML = `<div style="width:10px;height:10px;border-radius:50%;background:#10b981;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>`;
-      new mapboxgl.Marker({ element: oEl }).setLngLat(origin).addTo(m);
+          const result = await getRouteWithFallback(origin, dest);
+          const geometry = result?.geometry || { type: 'LineString', coordinates: [origin, dest] };
+          const coords = geometry.coordinates as [number, number][];
 
-      // Destination dot
-      const dEl = document.createElement('div');
-      dEl.innerHTML = `<div style="width:10px;height:10px;border-radius:50%;background:#ef4444;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>`;
-      new mapboxgl.Marker({ element: dEl }).setLngLat(dest).addTo(m);
+          // Route glow
+          m.addSource('demo-route', { type: 'geojson', data: { type: 'Feature', properties: {}, geometry } as any });
+          m.addLayer({
+            id: 'demo-glow', type: 'line', source: 'demo-route',
+            layout: { 'line-join': ROUTE_STYLE.lineJoin, 'line-cap': ROUTE_STYLE.lineCap },
+            paint: { 'line-color': ROUTE_STYLE.glowColor, 'line-width': ROUTE_STYLE.glowWidth, 'line-opacity': ROUTE_STYLE.glowOpacity },
+          });
+          // Route line
+          m.addLayer({
+            id: 'demo-line', type: 'line', source: 'demo-route',
+            layout: { 'line-join': ROUTE_STYLE.lineJoin, 'line-cap': ROUTE_STYLE.lineCap },
+            paint: { 'line-color': ROUTE_STYLE.color, 'line-width': ROUTE_STYLE.width, 'line-opacity': ROUTE_STYLE.opacity },
+          });
 
-      // Moving parcel marker
-      const mEl = document.createElement('div');
-      mEl.innerHTML = `
-        <div style="position:relative;">
-          <div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;opacity:0.25;position:absolute;top:-5px;left:-5px;animation:ping 2s ease-in-out infinite;"></div>
-          <div style="width:14px;height:14px;border-radius:50%;background:#3b82f6;border:3px solid white;box-shadow:0 2px 10px rgba(59,130,246,0.5);position:relative;z-index:1;"></div>
-        </div>
-      `;
-      const marker = new mapboxgl.Marker({ element: mEl }).setLngLat(origin).addTo(m);
-      markerRef.current = marker;
+          // Origin dot
+          const oEl = document.createElement('div');
+          oEl.innerHTML = `<div style="width:10px;height:10px;border-radius:50%;background:#10b981;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>`;
+          new mapboxgl.Marker({ element: oEl }).setLngLat(origin).addTo(m);
 
-      // Animate: cycle 0→100% over 30 seconds, then loop
-      let progress = 0;
-      const tick = () => {
-        progress = (progress + 0.15) % 100;
-        const pos = interpolateAlongRoute(coords, progress);
-        marker.setLngLat(pos);
-        animRef.current = requestAnimationFrame(tick);
-      };
-      animRef.current = requestAnimationFrame(tick);
+          // Destination dot
+          const dEl = document.createElement('div');
+          dEl.innerHTML = `<div style="width:10px;height:10px;border-radius:50%;background:#ef4444;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>`;
+          new mapboxgl.Marker({ element: dEl }).setLngLat(dest).addTo(m);
 
-      // Fit bounds
-      const bounds = new mapboxgl.LngLatBounds();
-      bounds.extend(origin);
-      bounds.extend(dest);
-      m.fitBounds(bounds, { padding: 50, duration: 0 });
-    });
+          // Moving parcel marker
+          const mEl = document.createElement('div');
+          mEl.innerHTML = `
+            <div style="position:relative;">
+              <div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;opacity:0.25;position:absolute;top:-5px;left:-5px;animation:ping 2s ease-in-out infinite;"></div>
+              <div style="width:14px;height:14px;border-radius:50%;background:#3b82f6;border:3px solid white;box-shadow:0 2px 10px rgba(59,130,246,0.5);position:relative;z-index:1;"></div>
+            </div>
+          `;
+          const marker = new mapboxgl.Marker({ element: mEl }).setLngLat(origin).addTo(m);
+          markerRef.current = marker;
 
-    mapRef.current = m;
+          // Animate: cycle 0→100% over 30 seconds, then loop
+          let progress = 0;
+          const tick = () => {
+            progress = (progress + 0.15) % 100;
+            const pos = interpolateAlongRoute(coords, progress);
+            marker.setLngLat(pos);
+            animRef.current = requestAnimationFrame(tick);
+          };
+          animRef.current = requestAnimationFrame(tick);
+
+          // Fit bounds
+          const bounds = new mapboxgl.LngLatBounds();
+          bounds.extend(origin);
+          bounds.extend(dest);
+          m.fitBounds(bounds, { padding: 50, duration: 0 });
+        });
+
+        // Also resize when container becomes visible via Reveal
+        const ro = new ResizeObserver(() => { if (m) m.resize(); });
+        ro.observe(containerRef.current);
+
+        mapRef.current = m;
+      } catch (err) {
+        console.error('TrackMiniMap init error:', err);
+      }
+    }, 600); // Wait for Reveal animation to complete
 
     return () => {
+      clearTimeout(timer);
       cancelAnimationFrame(animRef.current);
-      m.remove();
-      mapRef.current = null;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
     };
   }, []);
 
   return (
     <div className="relative w-full h-full">
       {/* Container always rendered so ref is always available */}
-      <div ref={containerRef} className="absolute inset-0 rounded-sm" />
+      <div ref={containerRef} className="absolute inset-0 rounded-sm" style={{ minHeight: '300px' }} />
       {/* Overlay info */}
       <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end z-10 pointer-events-none">
         <div className="bg-[#0a192f]/85 backdrop-blur-md px-3 py-2 rounded-sm border border-gray-700/50">

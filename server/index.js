@@ -22,24 +22,9 @@ const PORT = process.env.PORT || 5000;
 app.use(helmet());
 app.disable('x-powered-by');
 
-// CORS — allow frontend origins dynamically
+// CORS — allow all origins safely
 app.use(cors({
-  origin: (origin, cb) => {
-    // Allow requests with no origin (mobile apps, curl, Postman in dev, or same origin)
-    if (!origin) return cb(null, true);
-    
-    // Always allow localhost
-    if (origin.startsWith('http://localhost:')) return cb(null, true);
-    
-    // Always allow the production domains
-    if (origin.includes('nexttrace.logistics')) return cb(null, true);
-    if (origin.includes('vercel.app')) return cb(null, true);
-    
-    // Allow explicitly defined FRONTEND_URL if present
-    if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) return cb(null, true);
-    
-    cb(new Error('Blocked by CORS'));
-  },
+  origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
