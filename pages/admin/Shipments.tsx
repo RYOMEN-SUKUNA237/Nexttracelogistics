@@ -120,6 +120,13 @@ const Shipments: React.FC<ShipmentsProps> = ({ shipments, setShipments, couriers
     origin: '', destination: '',
     weight: '', type: 'General', courierId: '',
     estimatedDelivery: '',
+    // Live Animals fields
+    petSpecies: '', petBreed: '', petAge: '', petColor: '', petWeight: '',
+    petGender: '', petMicrochipId: '', petVaccinationStatus: 'up-to-date',
+    petVetName: '', petVetPhone: '', petVetClinic: '',
+    petCrateType: 'standard', petTempMin: '', petTempMax: '',
+    petFeedingSchedule: '', petMedications: '', petSpecialCare: '',
+    petOwnerConsent: false,
   });
   const [creating, setCreating] = useState(false);
   const [routePreview, setRoutePreview] = useState<{ distance: number; duration: number; modes: string[]; summary: string } | null>(null);
@@ -186,7 +193,7 @@ const Shipments: React.FC<ShipmentsProps> = ({ shipments, setShipments, couriers
         route_duration: routeDuration,
         route_summary: routeSummary,
       } as any);
-      setForm({ sender: '', senderEmail: '', receiver: '', receiverEmail: '', origin: '', destination: '', weight: '', type: 'General', courierId: '', estimatedDelivery: '' });
+      setForm({ sender: '', senderEmail: '', receiver: '', receiverEmail: '', origin: '', destination: '', weight: '', type: 'General', courierId: '', estimatedDelivery: '', petSpecies: '', petBreed: '', petAge: '', petColor: '', petWeight: '', petGender: '', petMicrochipId: '', petVaccinationStatus: 'up-to-date', petVetName: '', petVetPhone: '', petVetClinic: '', petCrateType: 'standard', petTempMin: '', petTempMax: '', petFeedingSchedule: '', petMedications: '', petSpecialCare: '', petOwnerConsent: false });
       setRoutePreview(null);
       setTransportPlans([]);
       setSelectedPlanId(null);
@@ -407,6 +414,159 @@ const Shipments: React.FC<ShipmentsProps> = ({ shipments, setShipments, couriers
                 </div>
               </div>
 
+              {/* ── Live Animals Detail Panel ────────────────── */}
+              {form.type === 'Live Animals' && (
+                <div className="bg-amber-50/50 border border-amber-200 rounded-lg p-5 space-y-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-lg">🐾</span>
+                    <h4 className="text-sm font-bold text-[#0a192f] uppercase tracking-wide">Live Animal Details</h4>
+                  </div>
+
+                  {/* Animal Info */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Species *</label>
+                      <select value={form.petSpecies} onChange={e => setForm(p => ({ ...p, petSpecies: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-amber-500 outline-none bg-white">
+                        <option value="">Select...</option>
+                        <option>Dog</option><option>Cat</option><option>Bird</option><option>Rabbit</option>
+                        <option>Reptile</option><option>Fish</option><option>Horse</option><option>Livestock</option>
+                        <option>Exotic</option><option>Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Breed</label>
+                      <input type="text" value={form.petBreed} onChange={e => setForm(p => ({ ...p, petBreed: e.target.value }))}
+                        placeholder="e.g. Golden Retriever" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-amber-500 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Gender</label>
+                      <select value={form.petGender} onChange={e => setForm(p => ({ ...p, petGender: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-amber-500 outline-none bg-white">
+                        <option value="">Select...</option>
+                        <option>Male</option><option>Female</option><option>Unknown</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Age</label>
+                      <input type="text" value={form.petAge} onChange={e => setForm(p => ({ ...p, petAge: e.target.value }))}
+                        placeholder="e.g. 3 years" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-amber-500 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Color / Markings</label>
+                      <input type="text" value={form.petColor} onChange={e => setForm(p => ({ ...p, petColor: e.target.value }))}
+                        placeholder="e.g. Brown/White" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-amber-500 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Animal Weight (kg)</label>
+                      <input type="number" value={form.petWeight} onChange={e => setForm(p => ({ ...p, petWeight: e.target.value }))}
+                        placeholder="0.0" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-amber-500 outline-none" />
+                    </div>
+                  </div>
+
+                  {/* Health & Vaccination */}
+                  <div className="border-t border-amber-200 pt-3">
+                    <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wide mb-2">🏥 Health & Vaccination</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Vaccination Status</label>
+                        <select value={form.petVaccinationStatus} onChange={e => setForm(p => ({ ...p, petVaccinationStatus: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-amber-500 outline-none bg-white">
+                          <option value="up-to-date">✅ Up to Date</option>
+                          <option value="partial">⚠️ Partially Vaccinated</option>
+                          <option value="not-vaccinated">❌ Not Vaccinated</option>
+                          <option value="unknown">❓ Unknown</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Microchip ID</label>
+                        <input type="text" value={form.petMicrochipId} onChange={e => setForm(p => ({ ...p, petMicrochipId: e.target.value }))}
+                          placeholder="e.g. 900123456789012" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-amber-500 outline-none" />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Medications</label>
+                        <input type="text" value={form.petMedications} onChange={e => setForm(p => ({ ...p, petMedications: e.target.value }))}
+                          placeholder="Current meds..." className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-amber-500 outline-none" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Veterinarian */}
+                  <div className="border-t border-amber-200 pt-3">
+                    <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wide mb-2">🩺 Veterinarian Contact</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Vet Name</label>
+                        <input type="text" value={form.petVetName} onChange={e => setForm(p => ({ ...p, petVetName: e.target.value }))}
+                          placeholder="Dr. Smith" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-amber-500 outline-none" />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Vet Phone</label>
+                        <input type="tel" value={form.petVetPhone} onChange={e => setForm(p => ({ ...p, petVetPhone: e.target.value }))}
+                          placeholder="+1 555-0000" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-amber-500 outline-none" />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Clinic Name</label>
+                        <input type="text" value={form.petVetClinic} onChange={e => setForm(p => ({ ...p, petVetClinic: e.target.value }))}
+                          placeholder="Happy Paws Clinic" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-amber-500 outline-none" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Transport & Comfort */}
+                  <div className="border-t border-amber-200 pt-3">
+                    <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wide mb-2">🏠 Transport & Comfort Settings</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Crate Type</label>
+                        <select value={form.petCrateType} onChange={e => setForm(p => ({ ...p, petCrateType: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-amber-500 outline-none bg-white">
+                          <option value="standard">Standard Crate</option>
+                          <option value="airline-approved">Airline Approved</option>
+                          <option value="soft-sided">Soft-Sided Carrier</option>
+                          <option value="heavy-duty">Heavy Duty</option>
+                          <option value="custom">Custom Enclosure</option>
+                          <option value="open-transport">Open Transport (Livestock)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Min Temp (°C)</label>
+                        <input type="number" value={form.petTempMin} onChange={e => setForm(p => ({ ...p, petTempMin: e.target.value }))}
+                          placeholder="15" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-amber-500 outline-none" />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Max Temp (°C)</label>
+                        <input type="number" value={form.petTempMax} onChange={e => setForm(p => ({ ...p, petTempMax: e.target.value }))}
+                          placeholder="25" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-amber-500 outline-none" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                      <div>
+                        <label className="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Feeding Schedule</label>
+                        <input type="text" value={form.petFeedingSchedule} onChange={e => setForm(p => ({ ...p, petFeedingSchedule: e.target.value }))}
+                          placeholder="e.g. Every 6 hours, dry food only" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-amber-500 outline-none" />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Special Care Notes</label>
+                        <input type="text" value={form.petSpecialCare} onChange={e => setForm(p => ({ ...p, petSpecialCare: e.target.value }))}
+                          placeholder="e.g. Anxiety meds before flight" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-amber-500 outline-none" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Owner Consent */}
+                  <div className="border-t border-amber-200 pt-3">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input type="checkbox" checked={form.petOwnerConsent} onChange={e => setForm(p => ({ ...p, petOwnerConsent: e.target.checked }))}
+                        className="mt-0.5 w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500" />
+                      <span className="text-xs text-gray-600 leading-relaxed">
+                        I confirm the animal owner has provided written consent for transport, all required health certificates are on file, and the animal has been cleared for travel by a licensed veterinarian within the last 10 days.
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
               {/* Transport Planner */}
               {MAPBOX_TOKEN && form.origin && form.destination && (
                 <div className="bg-gray-50 rounded-lg p-4 space-y-3">
@@ -608,9 +768,20 @@ const Shipments: React.FC<ShipmentsProps> = ({ shipments, setShipments, couriers
                       <p className="text-sm text-gray-600">{shipment.courierName}</p>
                     </td>
                     <td className="px-4 py-4">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full capitalize ${conf.color}`}>
-                        {conf.icon} {shipment.status.replace('-', ' ')}
-                      </span>
+                      <select
+                        value={shipment.status}
+                        onChange={(e) => handleUpdateStatus(shipment, e.target.value as Shipment['status'])}
+                        className={`px-2.5 py-1 text-xs font-medium rounded-full capitalize border-0 cursor-pointer outline-none appearance-none pr-6 ${conf.color}`}
+                        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 6px center' }}
+                      >
+                        <option value="pending">⏳ Pending</option>
+                        <option value="picked-up">📦 Picked Up</option>
+                        <option value="in-transit">🚚 In Transit</option>
+                        <option value="out-for-delivery">📍 Out for Delivery</option>
+                        <option value="delivered">✅ Delivered</option>
+                        <option value="returned">↩️ Returned</option>
+                        <option value="paused">⏸ Paused</option>
+                      </select>
                     </td>
                     <td className="px-4 py-4 hidden sm:table-cell">
                       <div className="flex items-center gap-2 min-w-[120px]">
@@ -742,7 +913,7 @@ const Shipments: React.FC<ShipmentsProps> = ({ shipments, setShipments, couriers
                       className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] outline-none bg-white">
                       <option value="">Select a category...</option>
                       {pauseModal.shipment.type === 'Live Animals' ? (
-                        ['Veterinary Check', 'Feeding & Walking', 'Rest Period', 'Temperature Control', 'Document Issue', 'Other'].map(c => (
+                        ['Veterinary Check', 'Emergency Vet Visit', 'Feeding & Hydration', 'Walking / Exercise', 'Rest Period (Mandatory)', 'Temperature Out of Range', 'Quarantine Required', 'Anxiety / Stress Management', 'Grooming & Hygiene', 'Crate Maintenance', 'Weather — Unsafe for Animal', 'Vaccination Document Issue', 'Import/Export Permit Hold', 'Other'].map(c => (
                           <option key={c}>{c}</option>
                         ))
                       ) : (
