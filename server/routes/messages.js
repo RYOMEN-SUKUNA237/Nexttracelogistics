@@ -2,12 +2,7 @@ const express = require('express');
 const { pool } = require('../db');
 const { authMiddleware } = require('../middleware/auth');
 const crypto = require('crypto');
-let notifyAdminsAboutSupport;
-try {
-  notifyAdminsAboutSupport = require('./emails').notifyAdminsAboutSupport;
-} catch (e) {
-  notifyAdminsAboutSupport = null;
-}
+const { sendMail, buildSupportNotificationEmail, COMPANY_EMAIL } = require('../utils/mailer');
 
 const router = express.Router();
 
@@ -96,17 +91,27 @@ router.post('/send', async (req, res) => {
       );
     }
 
-    res.status(201).json({ message: inserted[0] });
-
-    // Send email notification to all admins (fire-and-forget)
-    if (type === 'visitor' && notifyAdminsAboutSupport) {
-      notifyAdminsAboutSupport({
-        visitorName: name,
-        visitorEmail: conversation.visitor_email || null,
-        messageContent: content.trim(),
-        conversationId: conversation_id,
-      }).catch(err => console.error('Admin notification error:', err.message));
+    // ── Send email notification to admin BEFORE responding ──
+    if (type === 'visitor') {
+      try {
+        const emailData = buildSupportNotificationEmail({
+          visitorName: name,
+          visitorEmail: conversation.visitor_email || null,
+          messageContent: content.trim(),
+          conversationId: conversation_id,
+        });
+        await sendMail({
+          to: COMPANY_EMAIL,
+          subject: emailData.subject,
+          html: emailData.html,
+          text: emailData.text,
+        });
+      } catch (emailErr) {
+        console.error('Admin support notification email error:', emailErr.message);
+      }
     }
+
+    res.status(201).json({ message: inserted[0] });
   } catch (err) {
     console.error('Send message error:', err);
     res.status(500).json({ error: 'Internal server error.' });

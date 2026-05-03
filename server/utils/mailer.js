@@ -92,7 +92,7 @@ function emailTemplate({ title, preheader, bodyHtml }) {
  * Build a professional support notification email for admins
  */
 function buildSupportNotificationEmail({ visitorName, visitorEmail, messageContent, conversationId }) {
-  const dashboardLink = `${FRONTEND_URL}/admin`;
+  const dashboardLink = `${FRONTEND_URL}/admin?page=messages`;
   const previewText = messageContent.length > 100 ? messageContent.substring(0, 100) + '...' : messageContent;
 
   const html = emailTemplate({
