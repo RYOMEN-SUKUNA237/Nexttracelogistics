@@ -1,6 +1,135 @@
 import React, { useState } from 'react';
-import { Save, User, Bell, Shield, Globe, Mail, Phone, MapPin, Camera } from 'lucide-react';
+import { Save, User, Bell, Shield, Globe, Camera, Eye, EyeOff, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import * as api from '../../services/api';
 
+// ─── Password Change Sub-Component ──────────────────────────────────────────
+const SecurityPasswordForm: React.FC = () => {
+  const [current, setCurrent] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState('');
+  const [error, setError] = useState('');
+
+  const mismatch = confirm.length > 0 && newPw !== confirm;
+  const tooShort = newPw.length > 0 && newPw.length < 6;
+
+  const handleSubmit = async () => {
+    setError(''); setSuccess('');
+    if (!current || !newPw || !confirm) { setError('All fields are required.'); return; }
+    if (newPw !== confirm) { setError('New passwords do not match.'); return; }
+    if (newPw.length < 6) { setError('New password must be at least 6 characters.'); return; }
+    if (newPw === current) { setError('New password must be different from your current password.'); return; }
+
+    setLoading(true);
+    try {
+      await api.auth.changePassword(current, newPw);
+      setSuccess('Password updated successfully! Please use the new password next time you log in.');
+      setCurrent(''); setNewPw(''); setConfirm('');
+    } catch (err: any) {
+      setError(err.message || 'Failed to update password. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const inputClass = "w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-1 outline-none pr-12";
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-100 shadow-sm">
+      <div className="p-6 border-b border-gray-100">
+        <h3 className="font-bold text-[#0a192f]">Change Password</h3>
+        <p className="text-xs text-gray-500 mt-1">Update your admin account password</p>
+      </div>
+      <div className="p-6 space-y-4">
+        {/* Current Password */}
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Current Password</label>
+          <div className="relative">
+            <input
+              type={showCurrent ? 'text' : 'password'}
+              value={current}
+              onChange={e => setCurrent(e.target.value)}
+              placeholder="Enter your current password"
+              className={`${inputClass} border-gray-200 focus:border-[#0a192f] focus:ring-[#0a192f]`}
+            />
+            <button type="button" onClick={() => setShowCurrent(v => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              {showCurrent ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+        </div>
+
+        {/* New Password */}
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">New Password</label>
+          <div className="relative">
+            <input
+              type={showNew ? 'text' : 'password'}
+              value={newPw}
+              onChange={e => setNewPw(e.target.value)}
+              placeholder="At least 6 characters"
+              className={`${inputClass} ${tooShort ? 'border-red-300 focus:border-red-400 focus:ring-red-200' : 'border-gray-200 focus:border-[#0a192f] focus:ring-[#0a192f]'}`}
+            />
+            <button type="button" onClick={() => setShowNew(v => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+          {tooShort && <p className="text-xs text-red-500 mt-1">Password must be at least 6 characters</p>}
+        </div>
+
+        {/* Confirm New Password */}
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Confirm New Password</label>
+          <div className="relative">
+            <input
+              type={showConfirm ? 'text' : 'password'}
+              value={confirm}
+              onChange={e => setConfirm(e.target.value)}
+              placeholder="Re-enter your new password"
+              className={`${inputClass} ${mismatch ? 'border-red-300 focus:border-red-400 focus:ring-red-200' : 'border-gray-200 focus:border-[#0a192f] focus:ring-[#0a192f]'}`}
+            />
+            <button type="button" onClick={() => setShowConfirm(v => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+          {mismatch && <p className="text-xs text-red-500 mt-1">Passwords do not match</p>}
+        </div>
+
+        {/* Feedback */}
+        {error && (
+          <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+            <XCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        )}
+        {success && (
+          <div className="flex items-start gap-2 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+            <CheckCircle size={16} className="text-green-500 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-green-700">{success}</p>
+          </div>
+        )}
+      </div>
+      <div className="px-6 py-4 border-t border-gray-100 flex justify-end">
+        <button
+          onClick={handleSubmit}
+          disabled={loading || mismatch || tooShort}
+          className="px-6 py-2.5 bg-[#0a192f] text-white text-sm font-medium rounded-lg hover:bg-[#112d57] transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
+          {loading ? 'Updating...' : 'Update Password'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ─── Main Settings Component ─────────────────────────────────────────────────
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'profile' | 'notifications' | 'security' | 'company'>('profile');
   const [saved, setSaved] = useState(false);
@@ -137,30 +266,7 @@ const Settings: React.FC = () => {
       {/* Security Tab */}
       {activeTab === 'security' && (
         <div className="space-y-6">
-          <div className="bg-white rounded-lg border border-gray-100 shadow-sm">
-            <div className="p-6 border-b border-gray-100">
-              <h3 className="font-bold text-[#0a192f]">Change Password</h3>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Current Password</label>
-                <input type="password" className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">New Password</label>
-                <input type="password" className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Confirm New Password</label>
-                <input type="password" className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none" />
-              </div>
-            </div>
-            <div className="px-6 py-4 border-t border-gray-100 flex justify-end">
-              <button onClick={handleSave} className="px-6 py-2.5 bg-[#0a192f] text-white text-sm font-medium rounded-lg hover:bg-[#112d57] transition-colors flex items-center gap-2">
-                <Shield size={14} /> Update Password
-              </button>
-            </div>
-          </div>
+          <SecurityPasswordForm />
 
           <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-6">
             <h3 className="font-bold text-[#0a192f] mb-4">Two-Factor Authentication</h3>
