@@ -77,7 +77,7 @@ app.use('/api/couriers', courierRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/shipments', shipmentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/messages', publicLimiter, messageRoutes);
+app.use('/api/messages', messageRoutes);
 app.use('/api/quotes', publicLimiter, quoteRoutes);
 app.use('/api/reviews', publicLimiter, reviewRoutes);
 app.use('/api/emails', emailRoutes);
