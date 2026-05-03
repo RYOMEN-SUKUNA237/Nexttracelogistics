@@ -251,23 +251,21 @@ router.post('/', authMiddleware, async (req, res) => {
       `/shipments/${trackingId}`
     ]);
 
-    res.status(201).json({ shipment });
-
-    // ── Send confirmation emails (fire-and-forget, don't block response) ──
-    setImmediate(async () => {
-      try {
-        if (shipment.sender_email) {
-          const emailData = buildShipmentCreationEmail({ shipment, role: 'sender' });
-          await sendMail({ to: shipment.sender_email, subject: emailData.subject, html: emailData.html, text: emailData.text });
-        }
-        if (shipment.receiver_email) {
-          const emailData = buildShipmentCreationEmail({ shipment, role: 'receiver' });
-          await sendMail({ to: shipment.receiver_email, subject: emailData.subject, html: emailData.html, text: emailData.text });
-        }
-      } catch (emailErr) {
-        console.error('Shipment creation email error:', emailErr.message);
+    // ── Send confirmation emails BEFORE responding (required for serverless) ──
+    try {
+      if (shipment.sender_email) {
+        const emailData = buildShipmentCreationEmail({ shipment, role: 'sender' });
+        await sendMail({ to: shipment.sender_email, subject: emailData.subject, html: emailData.html, text: emailData.text });
       }
-    });
+      if (shipment.receiver_email) {
+        const emailData = buildShipmentCreationEmail({ shipment, role: 'receiver' });
+        await sendMail({ to: shipment.receiver_email, subject: emailData.subject, html: emailData.html, text: emailData.text });
+      }
+    } catch (emailErr) {
+      console.error('Shipment creation email error:', emailErr.message);
+    }
+
+    res.status(201).json({ shipment });
   } catch (err) {
     console.error('Create shipment error:', err);
     res.status(500).json({ error: 'Internal server error.' });
@@ -321,29 +319,26 @@ router.patch('/:id/status', authMiddleware, async (req, res) => {
     }
 
     const { rows: updated } = await pool.query('SELECT * FROM shipments WHERE id = $1', [shipment.id]);
-    res.json({ shipment: updated[0] });
 
-    // ── Send status update emails to sender & receiver (fire-and-forget) ──
-    setImmediate(async () => {
-      try {
-        const recipients = [];
-        if (shipment.sender_email) recipients.push({ email: shipment.sender_email, role: 'sender' });
-        if (shipment.receiver_email) recipients.push({ email: shipment.receiver_email, role: 'receiver' });
-        for (const r of recipients) {
-          const emailData = buildShipmentStatusChangeEmail({
-            shipment,
-            newStatus: status,
-            role: r.role,
-            notes: notes || null,
-          });
-          await sendMail({ to: r.email, subject: emailData.subject, html: emailData.html, text: emailData.text });
-        }
-      } catch (emailErr) {
-        console.error('Status change email error:', emailErr.message);
+    // ── Send status update emails BEFORE responding ──
+    try {
+      const recipients = [];
+      if (shipment.sender_email) recipients.push({ email: shipment.sender_email, role: 'sender' });
+      if (shipment.receiver_email) recipients.push({ email: shipment.receiver_email, role: 'receiver' });
+      for (const r of recipients) {
+        const emailData = buildShipmentStatusChangeEmail({
+          shipment,
+          newStatus: status,
+          role: r.role,
+          notes: notes || null,
+        });
+        await sendMail({ to: r.email, subject: emailData.subject, html: emailData.html, text: emailData.text });
       }
-    });
+    } catch (emailErr) {
+      console.error('Status change email error:', emailErr.message);
+    }
 
-    // Create email drafts for tracking subscribers (fire-and-forget)
+    // Create email drafts for tracking subscribers
     if (createTrackingUpdateDraft) {
       const statusLabels = {
         'pending': 'Order Confirmed',
@@ -354,14 +349,20 @@ router.patch('/:id/status', authMiddleware, async (req, res) => {
         'returned': 'Returned',
         'paused': 'On Hold',
       };
-      createTrackingUpdateDraft({
-        trackingId: shipment.tracking_id,
-        status,
-        statusLabel: statusLabels[status] || status,
-        location: location || null,
-        notes: notes || null,
-      }).catch(err => console.error('Tracking draft error:', err.message));
+      try {
+        await createTrackingUpdateDraft({
+          trackingId: shipment.tracking_id,
+          status,
+          statusLabel: statusLabels[status] || status,
+          location: location || null,
+          notes: notes || null,
+        });
+      } catch (err) {
+        console.error('Tracking draft error:', err.message);
+      }
     }
+
+    res.json({ shipment: updated[0] });
   } catch (err) {
     console.error('Update shipment status error:', err);
     res.status(500).json({ error: 'Internal server error.' });
@@ -450,40 +451,43 @@ router.patch('/:id/pause', authMiddleware, async (req, res) => {
     ]);
 
     const { rows: updated } = await pool.query('SELECT * FROM shipments WHERE id = $1', [shipment.id]);
-    res.json({ shipment: updated[0] });
 
-    // ── Send pause/resume email to BOTH sender & receiver (fire-and-forget) ──
-    setImmediate(async () => {
-      try {
-        const recipients = [];
-        if (shipment.sender_email) recipients.push(shipment.sender_email);
-        if (shipment.receiver_email && shipment.receiver_email !== shipment.sender_email) recipients.push(shipment.receiver_email);
-        for (const email of recipients) {
-          const emailData = buildShipmentPauseEmail({
-            shipment,
-            isPaused: newPaused,
-            pauseCategory: newPaused ? (pause_category || null) : null,
-            pauseReason: newPaused ? (pause_reason || null) : null,
-          });
-          await sendMail({ to: email, subject: emailData.subject, html: emailData.html, text: emailData.text });
-        }
-      } catch (emailErr) {
-        console.error('Pause email error:', emailErr.message);
+    // ── Send pause/resume email to BOTH sender & receiver BEFORE responding ──
+    try {
+      const recipients = [];
+      if (shipment.sender_email) recipients.push(shipment.sender_email);
+      if (shipment.receiver_email && shipment.receiver_email !== shipment.sender_email) recipients.push(shipment.receiver_email);
+      for (const email of recipients) {
+        const emailData = buildShipmentPauseEmail({
+          shipment,
+          isPaused: newPaused,
+          pauseCategory: newPaused ? (pause_category || null) : null,
+          pauseReason: newPaused ? (pause_reason || null) : null,
+        });
+        await sendMail({ to: email, subject: emailData.subject, html: emailData.html, text: emailData.text });
       }
-    });
-
-    // Also create tracking update drafts for subscribers
-    if (createTrackingUpdateDraft) {
-      createTrackingUpdateDraft({
-        trackingId: shipment.tracking_id,
-        status: newStatus,
-        statusLabel: newPaused ? 'On Hold' : 'Resumed — In Transit',
-        location: null,
-        notes: action,
-        pauseCategory: newPaused ? (pause_category || null) : null,
-        pauseReason: newPaused ? (pause_reason || null) : null,
-      }).catch(err => console.error('Tracking draft error:', err.message));
+    } catch (emailErr) {
+      console.error('Pause email error:', emailErr.message);
     }
+
+    // Create tracking update drafts for subscribers
+    if (createTrackingUpdateDraft) {
+      try {
+        await createTrackingUpdateDraft({
+          trackingId: shipment.tracking_id,
+          status: newStatus,
+          statusLabel: newPaused ? 'On Hold' : 'Resumed — In Transit',
+          location: null,
+          notes: action,
+          pauseCategory: newPaused ? (pause_category || null) : null,
+          pauseReason: newPaused ? (pause_reason || null) : null,
+        });
+      } catch (err) {
+        console.error('Tracking draft error:', err.message);
+      }
+    }
+
+    res.json({ shipment: updated[0] });
   } catch (err) {
     console.error('Pause/Resume error:', err);
     res.status(500).json({ error: 'Internal server error.' });
