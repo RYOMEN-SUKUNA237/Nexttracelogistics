@@ -48,7 +48,7 @@ router.post('/conversations', async (req, res) => {
 
     // Get messages for this conversation
     const { rows: messages } = await pool.query(
-      `SELECT * FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC`, [conversation.id]
+      `SELECT * FROM chat_messages WHERE conversation_id = $1 ORDER BY created_at ASC`, [conversation.id]
     );
 
     res.json({ conversation, messages });
@@ -80,7 +80,7 @@ router.post('/send', async (req, res) => {
     const name = sender_name || (type === 'admin' ? 'Support Agent' : conversation.visitor_name || 'Visitor');
 
     const { rows: inserted } = await pool.query(
-      `INSERT INTO messages (conversation_id, sender_type, sender_name, content, is_read)
+      `INSERT INTO chat_messages (conversation_id, sender_type, sender_name, content, is_read)
        VALUES ($1, $2, $3, $4, $5) RETURNING *`,
       [conversation_id, type, name, content.trim(), type === 'admin']
     );
@@ -117,7 +117,7 @@ router.post('/send', async (req, res) => {
 router.get('/conversations/:id/messages', async (req, res) => {
   try {
     const { rows: messages } = await pool.query(
-      `SELECT * FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC`, [req.params.id]
+      `SELECT * FROM chat_messages WHERE conversation_id = $1 ORDER BY created_at ASC`, [req.params.id]
     );
     res.json({ messages });
   } catch (err) {
@@ -133,9 +133,9 @@ router.get('/admin/conversations', authMiddleware, async (req, res) => {
   try {
     const { status, search } = req.query;
     let sql = `SELECT c.*, 
-      (SELECT content FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message,
-      (SELECT sender_type FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_sender_type,
-      (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as message_count
+      (SELECT content FROM chat_messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message,
+      (SELECT sender_type FROM chat_messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_sender_type,
+      (SELECT COUNT(*) FROM chat_messages WHERE conversation_id = c.id) as message_count
       FROM conversations c WHERE 1=1`;
     const params = [];
 
@@ -173,12 +173,12 @@ router.get('/admin/conversations/:id', authMiddleware, async (req, res) => {
     if (!conversation) return res.status(404).json({ error: 'Conversation not found.' });
 
     const { rows: messages } = await pool.query(
-      `SELECT * FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC`, [req.params.id]
+      `SELECT * FROM chat_messages WHERE conversation_id = $1 ORDER BY created_at ASC`, [req.params.id]
     );
 
     // Mark visitor messages as read, reset unread count
     await pool.query(
-      `UPDATE messages SET is_read = TRUE WHERE conversation_id = $1 AND sender_type = 'visitor' AND is_read = FALSE`, [req.params.id]
+      `UPDATE chat_messages SET is_read = TRUE WHERE conversation_id = $1 AND sender_type = 'visitor' AND is_read = FALSE`, [req.params.id]
     );
     await pool.query(
       `UPDATE conversations SET unread_count = 0 WHERE id = $1`, [req.params.id]
@@ -206,7 +206,7 @@ router.post('/admin/reply', authMiddleware, async (req, res) => {
     const adminName = req.user.full_name || 'Support Agent';
 
     const { rows: inserted } = await pool.query(
-      `INSERT INTO messages (conversation_id, sender_type, sender_name, content, is_read)
+      `INSERT INTO chat_messages (conversation_id, sender_type, sender_name, content, is_read)
        VALUES ($1, 'admin', $2, $3, TRUE) RETURNING *`,
       [conversation_id, adminName, content.trim()]
     );
