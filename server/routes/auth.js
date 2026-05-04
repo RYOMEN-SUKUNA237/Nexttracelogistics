@@ -102,19 +102,23 @@ router.post('/login', async (req, res) => {
 // GET /api/auth/me
 router.get('/me', authMiddleware, async (req, res) => {
   try {
-    // If it's a Supabase user, req.user won't have a username, just email and role
+    // Supabase Auth user — fetch live metadata from Supabase
     if (!req.user.username && req.user.email) {
+      const { data, error } = await supabase.auth.admin.getUserById(req.user.id);
+      const supaUser = data?.user;
       return res.json({
         user: {
           id: req.user.id,
           email: req.user.email,
-          full_name: 'Admin User',
+          full_name: supaUser?.user_metadata?.full_name || supaUser?.email?.split('@')[0] || 'Admin',
+          phone: supaUser?.user_metadata?.phone || null,
           role: 'admin',
-          created_at: new Date().toISOString()
+          created_at: supaUser?.created_at || new Date().toISOString()
         }
       });
     }
 
+    // Legacy JWT user
     const { rows } = await pool.query('SELECT id, username, email, full_name, role, phone, avatar, created_at FROM users WHERE id = $1', [req.user.id]);
     if (!rows[0]) return res.status(404).json({ error: 'User not found.' });
     res.json({ user: rows[0] });
@@ -128,11 +132,36 @@ router.get('/me', authMiddleware, async (req, res) => {
 router.put('/me', authMiddleware, async (req, res) => {
   try {
     const { full_name, email, phone, avatar } = req.body;
+
+    // Supabase Auth user — update metadata via Supabase Admin API
+    if (!req.user.username && req.user.email) {
+      const updateData = {};
+      if (email) updateData.email = email;
+      updateData.data = {
+        full_name: full_name || req.user.full_name || 'Admin',
+        phone: phone || null,
+      };
+
+      const { data, error } = await supabase.auth.admin.updateUserById(req.user.id, updateData);
+      if (error) return res.status(500).json({ error: 'Failed to update profile: ' + error.message });
+
+      return res.json({
+        user: {
+          id: req.user.id,
+          email: data.user.email,
+          full_name: data.user.user_metadata?.full_name || 'Admin',
+          phone: data.user.user_metadata?.phone || null,
+          role: 'admin',
+          created_at: data.user.created_at,
+        }
+      });
+    }
+
+    // Legacy JWT user
     await pool.query(
       'UPDATE users SET full_name = COALESCE($1, full_name), email = COALESCE($2, email), phone = COALESCE($3, phone), avatar = COALESCE($4, avatar) WHERE id = $5',
       [full_name || null, email || null, phone || null, avatar || null, req.user.id]
     );
-
     const { rows } = await pool.query('SELECT id, username, email, full_name, role, phone, avatar, created_at FROM users WHERE id = $1', [req.user.id]);
     res.json({ user: rows[0] });
   } catch (err) {

@@ -98,24 +98,25 @@ router.get('/notifications', authMiddleware, async (req, res) => {
   }
 });
 
-// PATCH /api/dashboard/notifications/:id/read — Mark notification as read
-router.patch('/notifications/:id/read', authMiddleware, async (req, res) => {
-  try {
-    await pool.query('UPDATE notifications SET is_read = TRUE WHERE id = $1', [req.params.id]);
-    res.json({ message: 'Notification marked as read.' });
-  } catch (err) {
-    console.error('Mark notification read error:', err);
-    res.status(500).json({ error: 'Internal server error.' });
-  }
-});
-
 // PATCH /api/dashboard/notifications/read-all — Mark all as read
+// ⚠️ MUST be declared BEFORE /:id/read to prevent 'read-all' being captured as an id param
 router.patch('/notifications/read-all', authMiddleware, async (req, res) => {
   try {
     await pool.query('UPDATE notifications SET is_read = TRUE WHERE is_read = FALSE');
     res.json({ message: 'All notifications marked as read.' });
   } catch (err) {
     console.error('Mark all read error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// PATCH /api/dashboard/notifications/:id/read — Mark single notification as read
+router.patch('/notifications/:id/read', authMiddleware, async (req, res) => {
+  try {
+    await pool.query('UPDATE notifications SET is_read = TRUE WHERE id = $1', [req.params.id]);
+    res.json({ message: 'Notification marked as read.' });
+  } catch (err) {
+    console.error('Mark notification read error:', err);
     res.status(500).json({ error: 'Internal server error.' });
   }
 });
@@ -128,7 +129,7 @@ router.get('/active-map', authMiddleware, async (req, res) => {
       FROM shipments s
       LEFT JOIN couriers c ON s.courier_id = c.courier_id
       WHERE s.status IN ('in-transit', 'out-for-delivery', 'paused')
-      ORDER BY s.updated_at DESC
+      ORDER BY COALESCE(s.updated_at, s.created_at) DESC
     `);
 
     res.json({ shipments });

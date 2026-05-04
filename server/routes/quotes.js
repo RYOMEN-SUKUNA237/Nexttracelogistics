@@ -129,7 +129,7 @@ router.patch('/admin/:id/status', authMiddleware, async (req, res) => {
 
     if (['quoted', 'accepted', 'rejected', 'closed'].includes(status)) {
       setClauses.push(`processed_by = $${idx++}`);
-      params.push(req.user.full_name || req.user.username);
+      params.push(req.user.full_name || req.user.username || req.user.email || 'admin');
       setClauses.push('processed_at = NOW()');
     }
 

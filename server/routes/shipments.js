@@ -240,7 +240,7 @@ router.post('/', authMiddleware, async (req, res) => {
     // Add tracking history entry
     await pool.query(
       'INSERT INTO tracking_history (shipment_id, tracking_id, status, location, notes, updated_by) VALUES ($1, $2, $3, $4, $5, $6)',
-      [shipment.id, trackingId, initialStatus, origin, 'Shipment created.', req.user.username]
+      [shipment.id, trackingId, initialStatus, origin, 'Shipment created.', req.user.username || req.user.email || 'admin']
     );
 
     // Notification
@@ -310,7 +310,7 @@ router.patch('/:id/status', authMiddleware, async (req, res) => {
     // Add tracking history
     await pool.query(
       'INSERT INTO tracking_history (shipment_id, tracking_id, status, location, lat, lng, notes, updated_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-      [shipment.id, shipment.tracking_id, status, location || null, lat || null, lng || null, notes || null, req.user.username]
+      [shipment.id, shipment.tracking_id, status, location || null, lat || null, lng || null, notes || null, req.user.username || req.user.email || 'admin']
     );
 
     // Update courier delivery count if delivered
@@ -392,7 +392,7 @@ router.patch('/:id/assign', authMiddleware, async (req, res) => {
 
     await pool.query(
       'INSERT INTO tracking_history (shipment_id, tracking_id, status, notes, updated_by) VALUES ($1, $2, $3, $4, $5)',
-      [shipment.id, shipment.tracking_id, 'picked-up', `Assigned to courier ${courier.name} (${courier_id}).`, req.user.username]
+      [shipment.id, shipment.tracking_id, 'picked-up', `Assigned to courier ${courier.name} (${courier_id}).`, req.user.username || req.user.email || 'admin']
     );
 
     const { rows: updated } = await pool.query('SELECT * FROM shipments WHERE id = $1', [shipment.id]);
@@ -441,7 +441,7 @@ router.patch('/:id/pause', authMiddleware, async (req, res) => {
 
     await pool.query(
       'INSERT INTO tracking_history (shipment_id, tracking_id, status, notes, updated_by) VALUES ($1, $2, $3, $4, $5)',
-      [shipment.id, shipment.tracking_id, newStatus, action, req.user.username]
+      [shipment.id, shipment.tracking_id, newStatus, action, req.user.username || req.user.email || 'admin']
     );
 
     await pool.query('INSERT INTO notifications (title, message, type) VALUES ($1, $2, $3)', [

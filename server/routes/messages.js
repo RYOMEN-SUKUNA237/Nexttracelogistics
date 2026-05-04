@@ -208,7 +208,7 @@ router.post('/admin/reply', authMiddleware, async (req, res) => {
     const { rows: convRows } = await pool.query('SELECT * FROM conversations WHERE id = $1', [conversation_id]);
     if (!convRows[0]) return res.status(404).json({ error: 'Conversation not found.' });
 
-    const adminName = req.user.full_name || 'Support Agent';
+    const adminName = req.user.full_name || req.user.username || req.user.email?.split('@')[0] || 'Support Agent';
 
     const { rows: inserted } = await pool.query(
       `INSERT INTO chat_messages (conversation_id, sender_type, sender_name, content, is_read)

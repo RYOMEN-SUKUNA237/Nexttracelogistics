@@ -37,6 +37,13 @@ const Dashboard: React.FC = () => {
   const [couriers, setCouriers] = useState<Courier[]>([]);
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [headerSearch, setHeaderSearch] = useState('');
+
+  // Notifications state
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [loadingNotifs, setLoadingNotifs] = useState(false);
 
   // Auth state
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -109,6 +116,29 @@ const Dashboard: React.FC = () => {
   }, [isLoggedIn]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Fetch notifications
+  const fetchNotifications = useCallback(async () => {
+    if (!isLoggedIn) return;
+    setLoadingNotifs(true);
+    try {
+      const data = await api.dashboard.notifications(20);
+      setNotifications(data.notifications || []);
+      setUnreadCount(data.unreadCount || 0);
+    } catch (err) {
+      console.error('Failed to fetch notifications:', err);
+    } finally {
+      setLoadingNotifs(false);
+    }
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchNotifications();
+      const t = setInterval(fetchNotifications, 30000);
+      return () => clearInterval(t);
+    }
+  }, [fetchNotifications]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -345,15 +375,74 @@ const Dashboard: React.FC = () => {
                 <Search size={14} className="absolute left-3 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search..."
+                  placeholder="Search shipments..."
+                  value={headerSearch}
+                  onChange={(e) => {
+                    setHeaderSearch(e.target.value);
+                    if (e.target.value) { setActivePage('shipments'); setSidebarOpen(false); }
+                  }}
                   className="pl-9 pr-4 py-2 w-48 lg:w-64 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none"
                 />
               </div>
+
               {/* Notifications */}
-              <button className="relative p-2 bg-gray-50 rounded-lg text-gray-500 hover:text-[#0a192f] hover:bg-gray-100 transition-colors">
-                <Bell size={18} />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
-              </button>
+              <div className="relative">
+                <button
+                  onClick={async () => {
+                    setNotifOpen(v => !v);
+                    if (!notifOpen) {
+                      await fetchNotifications();
+                      // Mark all as read after opening
+                      if (unreadCount > 0) {
+                        try { await api.dashboard.markAllNotificationsRead(); setUnreadCount(0); setNotifications(prev => prev.map(n => ({ ...n, is_read: true }))); } catch {}
+                      }
+                    }
+                  }}
+                  className="relative p-2 bg-gray-50 rounded-lg text-gray-500 hover:text-[#0a192f] hover:bg-gray-100 transition-colors"
+                >
+                  <Bell size={18} />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Notifications Dropdown */}
+                {notifOpen && (
+                  <div className="absolute right-0 top-11 w-80 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center">
+                      <h3 className="font-semibold text-[#0a192f] text-sm">Notifications</h3>
+                      <button onClick={() => setNotifOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                      {loadingNotifs ? (
+                        <div className="py-6 flex justify-center"><Loader2 size={20} className="animate-spin text-gray-400" /></div>
+                      ) : notifications.length === 0 ? (
+                        <p className="py-6 text-center text-sm text-gray-400">No notifications</p>
+                      ) : (
+                        notifications.map((n: any) => (
+                          <div key={n.id} className={`px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${!n.is_read ? 'bg-blue-50/50' : ''}`}>
+                            <div className="flex items-start gap-2">
+                              <div className={`w-2 h-2 mt-1.5 rounded-full flex-shrink-0 ${
+                                n.type === 'success' ? 'bg-green-500' :
+                                n.type === 'warning' ? 'bg-amber-500' :
+                                n.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+                              }`} />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-[#0a192f]">{n.title}</p>
+                                <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.message}</p>
+                                <p className="text-[10px] text-gray-400 mt-1">{new Date(n.created_at).toLocaleString()}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Avatar */}
               <div className="w-9 h-9 rounded-full bg-[#0a192f] flex items-center justify-center text-white text-xs font-bold">
                 {initials}

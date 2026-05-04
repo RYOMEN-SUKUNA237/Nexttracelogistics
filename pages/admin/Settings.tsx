@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Save, User, Bell, Shield, Globe, Camera, Eye, EyeOff, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import * as api from '../../services/api';
 
@@ -132,11 +132,48 @@ const SecurityPasswordForm: React.FC = () => {
 // ─── Main Settings Component ─────────────────────────────────────────────────
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'profile' | 'notifications' | 'security' | 'company'>('profile');
-  const [saved, setSaved] = useState(false);
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  // Live profile state
+  const [adminUser, setAdminUser] = useState<any>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saveSuccess, setSaveSuccess] = useState('');
+
+  // Load real user data on mount
+  useEffect(() => {
+    api.auth.me()
+      .then(data => {
+        const u = data.user;
+        setAdminUser(u);
+        const parts = (u.full_name || '').split(' ');
+        setFirstName(parts[0] || '');
+        setLastName(parts.slice(1).join(' ') || '');
+        setEmail(u.email || '');
+        setPhone(u.phone || '');
+      })
+      .catch(err => console.error('Failed to load user:', err))
+      .finally(() => setLoadingUser(false));
+  }, []);
+
+  const handleProfileSave = async () => {
+    setSaveError(''); setSaveSuccess('');
+    setSaving(true);
+    try {
+      const full_name = `${firstName} ${lastName}`.trim();
+      const data = await api.auth.updateProfile({ full_name, email, phone });
+      setAdminUser(data.user);
+      setSaveSuccess('Profile updated successfully!');
+      setTimeout(() => setSaveSuccess(''), 3000);
+    } catch (err: any) {
+      setSaveError(err.message || 'Failed to save profile. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const tabs = [
@@ -145,6 +182,8 @@ const Settings: React.FC = () => {
     { id: 'security' as const, label: 'Security', icon: <Shield size={16} /> },
     { id: 'company' as const, label: 'Company', icon: <Globe size={16} /> },
   ];
+
+  const initials = adminUser?.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || 'AD';
 
   return (
     <div className="space-y-6">
@@ -179,38 +218,79 @@ const Settings: React.FC = () => {
             {/* Avatar */}
             <div className="flex items-center gap-5">
               <div className="relative">
-                <div className="w-20 h-20 rounded-full bg-[#0a192f] flex items-center justify-center text-white text-2xl font-bold">AD</div>
+                <div className="w-20 h-20 rounded-full bg-[#0a192f] flex items-center justify-center text-white text-2xl font-bold">
+                  {loadingUser ? <Loader2 size={20} className="animate-spin" /> : initials}
+                </div>
                 <button className="absolute -bottom-1 -right-1 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-blue-500 transition-colors">
                   <Camera size={14} />
                 </button>
               </div>
               <div>
-                <p className="font-semibold text-[#0a192f]">Admin User</p>
-                <p className="text-sm text-gray-500">nexttracelogistics@gmail.com</p>
+                <p className="font-semibold text-[#0a192f]">{adminUser?.full_name || 'Loading...'}</p>
+                <p className="text-sm text-gray-500">{adminUser?.email || ''}</p>
                 <p className="text-xs text-gray-400 mt-1">Role: Super Administrator</p>
               </div>
             </div>
 
+            {/* Feedback */}
+            {saveError && (
+              <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+                <XCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700">{saveError}</p>
+              </div>
+            )}
+            {saveSuccess && (
+              <div className="flex items-start gap-2 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+                <CheckCircle size={16} className="text-green-500 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-green-700">{saveSuccess}</p>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">First Name</label>
-                <input type="text" defaultValue="Admin" className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none" />
+                <input
+                  type="text"
+                  value={firstName}
+                  onChange={e => setFirstName(e.target.value)}
+                  disabled={loadingUser}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none disabled:bg-gray-50"
+                />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Last Name</label>
-                <input type="text" defaultValue="User" className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none" />
+                <input
+                  type="text"
+                  value={lastName}
+                  onChange={e => setLastName(e.target.value)}
+                  disabled={loadingUser}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none disabled:bg-gray-50"
+                />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Email</label>
-                <input type="email" defaultValue="nexttracelogistics@gmail.com" className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  disabled={loadingUser}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none disabled:bg-gray-50"
+                />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Phone</label>
-                <input type="tel" defaultValue="+1 (800) 555-0199" className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none" />
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  disabled={loadingUser}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none disabled:bg-gray-50"
+                />
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Timezone</label>
                 <select className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] outline-none bg-white">
+                  <option>Africa/Douala (WAT, UTC+1)</option>
                   <option>America/Chicago (CST, UTC-6)</option>
                   <option>America/New_York (EST, UTC-5)</option>
                   <option>America/Los_Angeles (PST, UTC-8)</option>
@@ -220,8 +300,13 @@ const Settings: React.FC = () => {
             </div>
           </div>
           <div className="px-6 py-4 border-t border-gray-100 flex justify-end">
-            <button onClick={handleSave} className="px-6 py-2.5 bg-[#0a192f] text-white text-sm font-medium rounded-lg hover:bg-[#112d57] transition-colors flex items-center gap-2">
-              <Save size={14} /> {saved ? 'Saved!' : 'Save Changes'}
+            <button
+              onClick={handleProfileSave}
+              disabled={saving || loadingUser}
+              className="px-6 py-2.5 bg-[#0a192f] text-white text-sm font-medium rounded-lg hover:bg-[#112d57] transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              {saving ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </div>
@@ -256,8 +341,8 @@ const Settings: React.FC = () => {
             ))}
           </div>
           <div className="px-6 py-4 border-t border-gray-100 flex justify-end">
-            <button onClick={handleSave} className="px-6 py-2.5 bg-[#0a192f] text-white text-sm font-medium rounded-lg hover:bg-[#112d57] transition-colors flex items-center gap-2">
-              <Save size={14} /> {saved ? 'Saved!' : 'Save Preferences'}
+            <button className="px-6 py-2.5 bg-[#0a192f] text-white text-sm font-medium rounded-lg hover:bg-[#112d57] transition-colors flex items-center gap-2">
+              <Save size={14} /> Save Preferences
             </button>
           </div>
         </div>
@@ -281,8 +366,8 @@ const Settings: React.FC = () => {
             <p className="text-sm text-gray-500 mb-4">Manage devices where you're currently signed in.</p>
             <div className="space-y-3">
               {[
-                { device: 'Chrome on Windows', location: 'Atlanta, GA', current: true },
-                { device: 'Safari on iPhone', location: 'Atlanta, GA', current: false },
+                { device: 'Chrome on Windows', location: 'Cameroon', current: true },
+                { device: 'Mobile Browser', location: 'Cameroon', current: false },
               ].map((session, i) => (
                 <div key={i} className="flex items-center justify-between py-2 px-4 bg-gray-50 rounded-lg">
                   <div>
@@ -324,7 +409,7 @@ const Settings: React.FC = () => {
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Address</label>
-                <input type="text" defaultValue="Wyoming" className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none" />
+                <input type="text" defaultValue="Cameroon" className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Tax ID / EIN</label>
@@ -332,13 +417,13 @@ const Settings: React.FC = () => {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Website</label>
-                <input type="url" defaultValue="https://nexttrace.logistics" className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none" />
+                <input type="url" defaultValue="https://nexusroutegloballogistics.com" className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none" />
               </div>
             </div>
           </div>
           <div className="px-6 py-4 border-t border-gray-100 flex justify-end">
-            <button onClick={handleSave} className="px-6 py-2.5 bg-[#0a192f] text-white text-sm font-medium rounded-lg hover:bg-[#112d57] transition-colors flex items-center gap-2">
-              <Save size={14} /> {saved ? 'Saved!' : 'Save Company Info'}
+            <button className="px-6 py-2.5 bg-[#0a192f] text-white text-sm font-medium rounded-lg hover:bg-[#112d57] transition-colors flex items-center gap-2">
+              <Save size={14} /> Save Company Info
             </button>
           </div>
         </div>
