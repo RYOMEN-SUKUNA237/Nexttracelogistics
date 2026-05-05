@@ -253,14 +253,16 @@ router.post('/', authMiddleware, async (req, res) => {
 
     // ── Send confirmation emails BEFORE responding (required for serverless) ──
     try {
+      const emailPromises = [];
       if (shipment.sender_email) {
         const emailData = buildShipmentCreationEmail({ shipment, role: 'sender' });
-        await sendMail({ to: shipment.sender_email, subject: emailData.subject, html: emailData.html, text: emailData.text });
+        emailPromises.push(sendMail({ to: shipment.sender_email, subject: emailData.subject, html: emailData.html, text: emailData.text }));
       }
       if (shipment.receiver_email) {
         const emailData = buildShipmentCreationEmail({ shipment, role: 'receiver' });
-        await sendMail({ to: shipment.receiver_email, subject: emailData.subject, html: emailData.html, text: emailData.text });
+        emailPromises.push(sendMail({ to: shipment.receiver_email, subject: emailData.subject, html: emailData.html, text: emailData.text }));
       }
+      await Promise.allSettled(emailPromises);
     } catch (emailErr) {
       console.error('Shipment creation email error:', emailErr.message);
     }
@@ -325,15 +327,17 @@ router.patch('/:id/status', authMiddleware, async (req, res) => {
       const recipients = [];
       if (shipment.sender_email) recipients.push({ email: shipment.sender_email, role: 'sender' });
       if (shipment.receiver_email) recipients.push({ email: shipment.receiver_email, role: 'receiver' });
-      for (const r of recipients) {
+      
+      const emailPromises = recipients.map(r => {
         const emailData = buildShipmentStatusChangeEmail({
           shipment,
           newStatus: status,
           role: r.role,
           notes: notes || null,
         });
-        await sendMail({ to: r.email, subject: emailData.subject, html: emailData.html, text: emailData.text });
-      }
+        return sendMail({ to: r.email, subject: emailData.subject, html: emailData.html, text: emailData.text });
+      });
+      await Promise.allSettled(emailPromises);
     } catch (emailErr) {
       console.error('Status change email error:', emailErr.message);
     }
@@ -457,15 +461,17 @@ router.patch('/:id/pause', authMiddleware, async (req, res) => {
       const recipients = [];
       if (shipment.sender_email) recipients.push(shipment.sender_email);
       if (shipment.receiver_email && shipment.receiver_email !== shipment.sender_email) recipients.push(shipment.receiver_email);
-      for (const email of recipients) {
+      
+      const emailPromises = recipients.map(email => {
         const emailData = buildShipmentPauseEmail({
           shipment,
           isPaused: newPaused,
           pauseCategory: newPaused ? (pause_category || null) : null,
           pauseReason: newPaused ? (pause_reason || null) : null,
         });
-        await sendMail({ to: email, subject: emailData.subject, html: emailData.html, text: emailData.text });
-      }
+        return sendMail({ to: email, subject: emailData.subject, html: emailData.html, text: emailData.text });
+      });
+      await Promise.allSettled(emailPromises);
     } catch (emailErr) {
       console.error('Pause email error:', emailErr.message);
     }
