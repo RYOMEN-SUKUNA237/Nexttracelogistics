@@ -253,15 +253,22 @@ router.post('/', authMiddleware, async (req, res) => {
 
     // ── Send confirmation emails BEFORE responding (required for serverless) ──
     try {
-      const emailPromises = [];
-      if (shipment.sender_email) {
-        const emailData = buildShipmentCreationEmail({ shipment, role: 'sender' });
-        emailPromises.push(sendMail({ to: shipment.sender_email, subject: emailData.subject, html: emailData.html, text: emailData.text }));
-      }
-      if (shipment.receiver_email) {
-        const emailData = buildShipmentCreationEmail({ shipment, role: 'receiver' });
-        emailPromises.push(sendMail({ to: shipment.receiver_email, subject: emailData.subject, html: emailData.html, text: emailData.text }));
-      }
+      const recipients = [];
+      if (shipment.sender_email) recipients.push({ email: shipment.sender_email, name: shipment.sender_name, role: 'sender' });
+      if (shipment.receiver_email) recipients.push({ email: shipment.receiver_email, name: shipment.receiver_name, role: 'receiver' });
+
+      const emailPromises = recipients.map(async r => {
+        const emailData = buildShipmentCreationEmail({ shipment, role: r.role });
+        const result = await sendMail({ to: r.email, subject: emailData.subject, html: emailData.html, text: emailData.text });
+        if (result.success) {
+          await pool.query(
+            `INSERT INTO email_drafts (type, recipient_email, recipient_name, subject, html_body, text_body, status, related_tracking_id, sent_at)
+             VALUES ($1, $2, $3, $4, $5, $6, 'sent', $7, NOW())`,
+            ['tracking_update', r.email, r.name, emailData.subject, emailData.html, emailData.text, shipment.tracking_id]
+          );
+        }
+        return result;
+      });
       await Promise.allSettled(emailPromises);
     } catch (emailErr) {
       console.error('Shipment creation email error:', emailErr.message);
@@ -325,17 +332,25 @@ router.patch('/:id/status', authMiddleware, async (req, res) => {
     // ── Send status update emails BEFORE responding ──
     try {
       const recipients = [];
-      if (shipment.sender_email) recipients.push({ email: shipment.sender_email, role: 'sender' });
-      if (shipment.receiver_email) recipients.push({ email: shipment.receiver_email, role: 'receiver' });
+      if (shipment.sender_email) recipients.push({ email: shipment.sender_email, name: shipment.sender_name, role: 'sender' });
+      if (shipment.receiver_email) recipients.push({ email: shipment.receiver_email, name: shipment.receiver_name, role: 'receiver' });
       
-      const emailPromises = recipients.map(r => {
+      const emailPromises = recipients.map(async r => {
         const emailData = buildShipmentStatusChangeEmail({
           shipment,
           newStatus: status,
           role: r.role,
           notes: notes || null,
         });
-        return sendMail({ to: r.email, subject: emailData.subject, html: emailData.html, text: emailData.text });
+        const result = await sendMail({ to: r.email, subject: emailData.subject, html: emailData.html, text: emailData.text });
+        if (result.success) {
+          await pool.query(
+            `INSERT INTO email_drafts (type, recipient_email, recipient_name, subject, html_body, text_body, status, related_tracking_id, sent_at)
+             VALUES ($1, $2, $3, $4, $5, $6, 'sent', $7, NOW())`,
+            ['tracking_update', r.email, r.name, emailData.subject, emailData.html, emailData.text, shipment.tracking_id]
+          );
+        }
+        return result;
       });
       await Promise.allSettled(emailPromises);
     } catch (emailErr) {
@@ -458,18 +473,32 @@ router.patch('/:id/pause', authMiddleware, async (req, res) => {
 
     // ── Send pause/resume email to BOTH sender & receiver BEFORE responding ──
     try {
+      const { rows: histRows } = await pool.query('SELECT location FROM tracking_history WHERE shipment_id = $1 AND location IS NOT NULL ORDER BY created_at DESC LIMIT 1', [shipment.id]);
+      const lastLocation = histRows[0]?.location || null;
+
       const recipients = [];
-      if (shipment.sender_email) recipients.push(shipment.sender_email);
-      if (shipment.receiver_email && shipment.receiver_email !== shipment.sender_email) recipients.push(shipment.receiver_email);
+      if (shipment.sender_email) recipients.push({ email: shipment.sender_email, name: shipment.sender_name });
+      if (shipment.receiver_email && shipment.receiver_email !== shipment.sender_email) recipients.push({ email: shipment.receiver_email, name: shipment.receiver_name });
       
-      const emailPromises = recipients.map(email => {
+      const emailPromises = recipients.map(async r => {
         const emailData = buildShipmentPauseEmail({
           shipment,
           isPaused: newPaused,
           pauseCategory: newPaused ? (pause_category || null) : null,
           pauseReason: newPaused ? (pause_reason || null) : null,
+          location: newPaused ? lastLocation : null,
+          pausedAt: newPaused ? nowIso : null,
         });
-        return sendMail({ to: email, subject: emailData.subject, html: emailData.html, text: emailData.text });
+        const result = await sendMail({ to: r.email, subject: emailData.subject, html: emailData.html, text: emailData.text });
+        if (result.success) {
+          // Log to email_drafts so it shows up in the admin Mail section
+          await pool.query(
+            `INSERT INTO email_drafts (type, recipient_email, recipient_name, subject, html_body, text_body, status, related_tracking_id, sent_at)
+             VALUES ($1, $2, $3, $4, $5, $6, 'sent', $7, NOW())`,
+            ['tracking_update', r.email, r.name, emailData.subject, emailData.html, emailData.text, shipment.tracking_id]
+          );
+        }
+        return result;
       });
       await Promise.allSettled(emailPromises);
     } catch (emailErr) {

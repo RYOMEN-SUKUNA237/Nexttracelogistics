@@ -342,9 +342,25 @@ function buildShipmentCreationEmail({ shipment, role }) {
 /**
  * Build a shipment pause / resume notification email for the receiver.
  */
-function buildShipmentPauseEmail({ shipment, isPaused, pauseCategory, pauseReason }) {
+function buildShipmentPauseEmail({ shipment, isPaused, pauseCategory, pauseReason, location, pausedAt }) {
   const trackingLink = `${FRONTEND_URL}/track/${shipment.tracking_id}`;
   const title = isPaused ? 'Shipment On Hold' : 'Shipment Resumed';
+  
+  let tailoredMessage = `We need to inform you that your shipment has been temporarily paused. Our team is working to resolve the situation as quickly as possible.`;
+  
+  if (isPaused && pauseCategory) {
+    if (pauseCategory.toLowerCase().includes('custom')) {
+      tailoredMessage = `Your shipment has been temporarily held at Customs for duty clearance or inspection. Please contact our support team as soon as possible for more information and to provide any necessary documentation to clear the shipment.`;
+    } else if (pauseCategory.toLowerCase().includes('weather')) {
+      tailoredMessage = `Your shipment is experiencing a delay due to severe weather conditions. We prioritize the safety of your cargo and our personnel, and transit will resume as soon as conditions improve.`;
+    } else if (pauseCategory.toLowerCase().includes('security')) {
+      tailoredMessage = `Your shipment is currently undergoing a mandatory security inspection. This is a standard procedure and we expect it to be cleared shortly.`;
+    } else if (pauseCategory.toLowerCase().includes('address')) {
+      tailoredMessage = `We encountered an issue with the delivery address provided. Please contact our support team immediately to verify and update your delivery details.`;
+    }
+  }
+
+  const timeString = pausedAt ? new Date(pausedAt).toLocaleString('en-US', { weekday: 'long', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
 
   const html = emailTemplate({
     title,
@@ -357,7 +373,7 @@ function buildShipmentPauseEmail({ shipment, isPaused, pauseCategory, pauseReaso
       </h2>
       <p style="color:#4a5568;font-size:14px;line-height:1.6;margin:0 0 20px 0;">
         ${isPaused
-          ? `We need to inform you that your shipment has been temporarily paused. Our team is working to resolve the situation as quickly as possible.`
+          ? tailoredMessage
           : `Great news! Your shipment is back on track and moving again toward its destination.`}
       </p>
 
@@ -378,6 +394,13 @@ function buildShipmentPauseEmail({ shipment, isPaused, pauseCategory, pauseReaso
         <p style="margin:0 0 6px 0;font-size:12px;color:#6b7280;text-transform:uppercase;font-weight:600;">Reason for Hold</p>
         <p style="margin:0;color:#1f2937;font-size:14px;font-weight:600;">${pauseCategory}</p>
         ${pauseReason ? `<p style="margin:6px 0 0;color:#4a5568;font-size:13px;">${pauseReason}</p>` : ''}
+      </div>` : ''}
+
+      ${isPaused && (location || timeString) ? `
+      <div class="info-box" style="border-left-color:#3b82f6;">
+        <p style="margin:0 0 6px 0;font-size:12px;color:#6b7280;text-transform:uppercase;font-weight:600;">Hold Details</p>
+        ${location ? `<p style="margin:0;color:#1f2937;font-size:13px;"><strong>Location:</strong> ${location}</p>` : ''}
+        ${timeString ? `<p style="margin:4px 0 0;color:#1f2937;font-size:13px;"><strong>Time:</strong> ${timeString}</p>` : ''}
       </div>` : ''}
 
       ${!isPaused ? `
