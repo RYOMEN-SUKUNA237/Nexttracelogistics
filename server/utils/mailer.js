@@ -17,7 +17,9 @@ const COMPANY_NAME = 'Next Trace Logistics';
 const COMPANY_EMAIL = process.env.COMPANY_EMAIL || 'support@nexttracelogistics.com';
 const COMPANY_PHONE = '+1 (412) 227-3484';
 const COMPANY_ADDRESS = 'Wyoming';
-const FRONTEND_URL = (process.env.FRONTEND_URL || 'https://nexttrace.logistics').replace(/\/$/, '');
+const FRONTEND_URL = (process.env.FRONTEND_URL || 'https://nexttracelogistics.com')
+  .replace(/\/$/, '')          // strip trailing slash
+  .replace(/^(https?:\/\/)www\./, '$1'); // strip www. to avoid redirect that drops the hash
 
 // Build a deep-link to the tracking page (HashRouter: /#/track/ID)
 function trackingUrl(trackingId) {
