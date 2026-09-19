@@ -1,6 +1,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const { authMiddleware } = require('../middleware/auth');
+const { getNotificationPrefs, saveNotificationPrefs } = require('../utils/notify');
 
 const router = express.Router();
 
@@ -82,6 +83,27 @@ router.put('/company', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('PUT /settings/company error:', err);
     res.status(500).json({ error: 'Failed to save company settings.' });
+  }
+});
+
+// GET /api/settings/notifications — admin bell notification preferences
+router.get('/notifications', authMiddleware, async (req, res) => {
+  try {
+    res.json({ prefs: await getNotificationPrefs() });
+  } catch (err) {
+    console.error('GET /settings/notifications error:', err);
+    res.status(500).json({ error: 'Failed to load notification preferences.' });
+  }
+});
+
+// PUT /api/settings/notifications
+router.put('/notifications', authMiddleware, async (req, res) => {
+  try {
+    const prefs = req.body && typeof req.body === 'object' ? req.body : {};
+    res.json({ prefs: await saveNotificationPrefs(prefs) });
+  } catch (err) {
+    console.error('PUT /settings/notifications error:', err);
+    res.status(500).json({ error: 'Failed to save notification preferences.' });
   }
 });
 

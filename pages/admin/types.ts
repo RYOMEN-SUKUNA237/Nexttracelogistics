@@ -12,6 +12,87 @@ export interface Courier {
   totalDeliveries: number;
   rating: number;
   avatar: string;
+  emergencyContact?: string;
+  notes?: string;
+}
+
+export type ShipmentStatus = 'pending' | 'picked-up' | 'in-transit' | 'out-for-delivery' | 'delivered' | 'returned' | 'paused';
+
+export interface ScheduledStop {
+  name: string;
+  lat: number;
+  lng: number;
+  added_at?: string;
+}
+
+export interface PetDetails {
+  species?: string;
+  breed?: string;
+  gender?: string;
+  age?: string;
+  color?: string;
+  weight?: string;
+  microchipId?: string;
+  vaccinationStatus?: string;
+  medications?: string;
+  vetName?: string;
+  vetPhone?: string;
+  vetClinic?: string;
+  crateType?: string;
+  tempMin?: string;
+  tempMax?: string;
+  feedingSchedule?: string;
+  specialCare?: string;
+  ownerConsent?: boolean;
+}
+
+/** Shipment row exactly as the admin API returns it. */
+export interface ShipmentRecord {
+  id: number | string;
+  tracking_id: string;
+  sender_name: string;
+  sender_email: string | null;
+  sender_phone: string | null;
+  receiver_name: string;
+  receiver_email: string | null;
+  receiver_phone: string | null;
+  origin: string;
+  destination: string;
+  origin_lat: number | string | null;
+  origin_lng: number | string | null;
+  dest_lat: number | string | null;
+  dest_lng: number | string | null;
+  current_lat: number | string | null;
+  current_lng: number | string | null;
+  status: ShipmentStatus;
+  status_before_pause?: ShipmentStatus | null;
+  courier_id: string | null;
+  weight: string | null;
+  cargo_type: string | null;
+  description: string | null;
+  special_instructions: string | null;
+  progress: number | string | null;
+  computed_progress?: number;
+  is_paused: boolean;
+  paused_at: string | null;
+  total_paused_ms: number | string | null;
+  pause_category: string | null;
+  pause_reason: string | null;
+  departed_at: string | null;
+  estimated_delivery: string | null;
+  eta_overridden?: boolean;
+  actual_delivery: string | null;
+  route_data: any;
+  route_distance: number | string | null;
+  route_duration: number | string | null;
+  route_summary: string | null;
+  route_mode?: string | null;
+  transport_modes: any;
+  multi_modal_segments: any;
+  multi_modal_stops: any;
+  scheduled_transit_stops: ScheduledStop[] | string | null;
+  pet_details: PetDetails | string | null;
+  created_at: string;
 }
 
 export interface Shipment {
@@ -21,7 +102,7 @@ export interface Shipment {
   receiver: string;
   origin: string;
   destination: string;
-  status: 'pending' | 'picked-up' | 'in-transit' | 'out-for-delivery' | 'delivered' | 'returned' | 'paused';
+  status: ShipmentStatus;
   courierId: string | null;
   courierName: string;
   weight: string;
@@ -30,115 +111,76 @@ export interface Shipment {
   estimatedDelivery: string;
   progress: number; // 0-100
   isPaused: boolean;
-  paused_at?: string | null;
-  pausedAt?: string | null;
   pauseCategory?: string;
   pauseReason?: string;
-  lat?: number;
-  lng?: number;
-  scheduled_transit_stops?: Array<{ name: string; lat: number; lng: number; added_at?: string }>;
-  multi_modal_stops?: Array<{ name: string; coords: [number, number]; type: string; label: string; icon: string }>;
-  multi_modal_segments?: Array<any>;
+  /** Full server record (route, timeline, contacts, pet details). */
+  raw: ShipmentRecord;
 }
 
 export type AdminPage = 'overview' | 'couriers' | 'customers' | 'shipments' | 'track-map' | 'messages' | 'quotes' | 'reviews' | 'emails' | 'settings';
 
-// Generate unique courier ID
-export const generateCourierId = (): string => {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let id = 'AT-CUR-';
-  for (let i = 0; i < 6; i++) {
-    id += chars.charAt(Math.floor(Math.random() * chars.length));
+/** Map an API shipment row to the admin list model. */
+export function toShipment(s: ShipmentRecord, courierNames: Record<string, string>): Shipment {
+  return {
+    id: String(s.id),
+    trackingId: s.tracking_id,
+    sender: s.sender_name,
+    receiver: s.receiver_name,
+    origin: s.origin,
+    destination: s.destination,
+    status: s.status,
+    courierId: s.courier_id,
+    courierName: s.courier_id ? (courierNames[s.courier_id] || 'Unknown') : 'Unassigned',
+    weight: s.weight || 'N/A',
+    type: s.cargo_type || 'General',
+    createdAt: s.created_at?.split('T')[0] || s.created_at,
+    estimatedDelivery: s.estimated_delivery || '',
+    progress: Math.round(Number(s.computed_progress ?? s.progress ?? 0) * 10) / 10,
+    isPaused: !!s.is_paused,
+    pauseCategory: s.pause_category || undefined,
+    pauseReason: s.pause_reason || undefined,
+    raw: s,
+  };
+}
+
+export function scheduledStopsOf(s: ShipmentRecord): ScheduledStop[] {
+  let v: any = s.scheduled_transit_stops;
+  while (typeof v === 'string') {
+    try { v = JSON.parse(v); } catch { return []; }
   }
-  return id;
+  return Array.isArray(v) ? v.filter((x) => x && x.lat != null && x.lng != null) : [];
+}
+
+export function petDetailsOf(s: ShipmentRecord): PetDetails | null {
+  let v: any = s.pet_details;
+  while (typeof v === 'string') {
+    try { v = JSON.parse(v); } catch { return null; }
+  }
+  return v && typeof v === 'object' ? v : null;
+}
+
+export const STATUS_LABELS: Record<ShipmentStatus, string> = {
+  'pending': 'Pending',
+  'picked-up': 'Picked Up',
+  'in-transit': 'In Transit',
+  'out-for-delivery': 'Out for Delivery',
+  'delivered': 'Delivered',
+  'returned': 'Returned',
+  'paused': 'On Hold',
 };
 
-// Generate unique tracking ID
-export const generateTrackingId = (): string => {
-  const num = Math.floor(1000 + Math.random() * 9000);
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const suffix = chars.charAt(Math.floor(Math.random() * chars.length)) + Math.floor(Math.random() * 10);
-  return `AT-${num}-${suffix}`;
-};
+export function formatDateTime(value: string | null | undefined): string {
+  if (!value) return '—';
+  const d = new Date(String(value).includes('T') ? String(value) : `${value}T00:00:00Z`);
+  if (isNaN(d.getTime())) return String(value);
+  return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+}
 
-// Mock data
-const avatars = [
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?fm=jpg&fit=crop&w=100&q=80',
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?fm=jpg&fit=crop&w=100&q=80',
-  'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?fm=jpg&fit=crop&w=100&q=80',
-  'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?fm=jpg&fit=crop&w=100&q=80',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?fm=jpg&fit=crop&w=100&q=80',
-];
-
-export const mockCouriers: Courier[] = [
-  {
-    id: '1', courierId: 'AT-CUR-7X92KP', name: 'Marcus Johnson', email: 'marcus@auratrack.com',
-    phone: '+1 555-0101', vehicleType: 'van', licensePlate: 'TX-4821-MJ', zone: 'Downtown Houston',
-    status: 'on-delivery', registeredAt: '2024-08-15', totalDeliveries: 342, rating: 4.8, avatar: avatars[0],
-  },
-  {
-    id: '2', courierId: 'AT-CUR-3B81NQ', name: 'Sofia Martinez', email: 'sofia@auratrack.com',
-    phone: '+1 555-0102', vehicleType: 'motorcycle', licensePlate: 'TX-1192-SM', zone: 'Midtown',
-    status: 'active', registeredAt: '2024-06-20', totalDeliveries: 578, rating: 4.9, avatar: avatars[1],
-  },
-  {
-    id: '3', courierId: 'AT-CUR-9D44RL', name: 'Emily Chen', email: 'emily@auratrack.com',
-    phone: '+1 555-0103', vehicleType: 'car', licensePlate: 'TX-8830-EC', zone: 'Galleria Area',
-    status: 'on-break', registeredAt: '2024-11-01', totalDeliveries: 124, rating: 4.6, avatar: avatars[2],
-  },
-  {
-    id: '4', courierId: 'AT-CUR-5F27WT', name: 'David Okafor', email: 'david@auratrack.com',
-    phone: '+1 555-0104', vehicleType: 'truck', licensePlate: 'TX-6654-DO', zone: 'Industrial District',
-    status: 'active', registeredAt: '2024-03-10', totalDeliveries: 891, rating: 4.7, avatar: avatars[3],
-  },
-  {
-    id: '5', courierId: 'AT-CUR-2H65YM', name: 'Jake Williams', email: 'jake@auratrack.com',
-    phone: '+1 555-0105', vehicleType: 'van', licensePlate: 'TX-3347-JW', zone: 'Medical Center',
-    status: 'inactive', registeredAt: '2025-01-05', totalDeliveries: 56, rating: 4.3, avatar: avatars[4],
-  },
-];
-
-export const mockShipments: Shipment[] = [
-  {
-    id: '1', trackingId: 'AT-8842-X9', sender: 'TechFlow Inc.', receiver: 'Global Parts Ltd.',
-    origin: 'Houston, TX', destination: 'Los Angeles, CA', status: 'in-transit',
-    courierId: 'AT-CUR-7X92KP', courierName: 'Marcus Johnson', weight: '24.5 kg',
-    type: 'Electronics', createdAt: '2025-01-15', estimatedDelivery: '2025-01-19',
-    progress: 65, isPaused: false, lat: 34.0522, lng: -118.2437,
-  },
-  {
-    id: '2', trackingId: 'AT-3291-K4', sender: 'MedPharma Global', receiver: 'City Hospital',
-    origin: 'New York, NY', destination: 'Chicago, IL', status: 'out-for-delivery',
-    courierId: 'AT-CUR-3B81NQ', courierName: 'Sofia Martinez', weight: '8.2 kg',
-    type: 'Pharmaceuticals', createdAt: '2025-01-16', estimatedDelivery: '2025-01-18',
-    progress: 90, isPaused: false, lat: 41.8781, lng: -87.6298,
-  },
-  {
-    id: '3', trackingId: 'AT-5510-A2', sender: 'AutoMakers Co.', receiver: 'Precision Motors',
-    origin: 'Detroit, MI', destination: 'Houston, TX', status: 'picked-up',
-    courierId: 'AT-CUR-5F27WT', courierName: 'David Okafor', weight: '150.0 kg',
-    type: 'Auto Parts', createdAt: '2025-01-17', estimatedDelivery: '2025-01-22',
-    progress: 15, isPaused: false, lat: 42.3314, lng: -83.0458,
-  },
-  {
-    id: '4', trackingId: 'AT-7723-M6', sender: 'Fashion House', receiver: 'Retail Store #42',
-    origin: 'Miami, FL', destination: 'Atlanta, GA', status: 'pending',
-    courierId: null, courierName: 'Unassigned', weight: '5.1 kg',
-    type: 'Apparel', createdAt: '2025-01-17', estimatedDelivery: '2025-01-20',
-    progress: 0, isPaused: false,
-  },
-  {
-    id: '5', trackingId: 'AT-1198-B7', sender: 'Book Depot', receiver: 'University Library',
-    origin: 'Boston, MA', destination: 'Philadelphia, PA', status: 'delivered',
-    courierId: 'AT-CUR-9D44RL', courierName: 'Emily Chen', weight: '32.0 kg',
-    type: 'Books & Documents', createdAt: '2025-01-10', estimatedDelivery: '2025-01-13',
-    progress: 100, isPaused: false,
-  },
-  {
-    id: '6', trackingId: 'AT-6645-Z1', sender: 'Fresh Foods Co.', receiver: 'Restaurant Group',
-    origin: 'San Francisco, CA', destination: 'Seattle, WA', status: 'paused',
-    courierId: 'AT-CUR-7X92KP', courierName: 'Marcus Johnson', weight: '45.0 kg',
-    type: 'Perishables', createdAt: '2025-01-14', estimatedDelivery: '2025-01-17',
-    progress: 40, isPaused: true, lat: 37.7749, lng: -122.4194,
-  },
-];
+/** Value for <input type="datetime-local"> in the browser's timezone. */
+export function toLocalInput(value: string | null | undefined): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}

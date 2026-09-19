@@ -30,6 +30,11 @@ function trackingUrl(trackingId) {
  * Send an email using the configured SMTP transport
  */
 async function sendMail({ to, subject, html, text, attachments }) {
+  // Local testing: log instead of delivering, so no real customer is emailed.
+  if (process.env.MAIL_DRY_RUN === 'true') {
+    console.log(`📧 [dry-run] Email to ${to}: ${subject}`);
+    return { success: true, messageId: `dry-run-${Date.now()}` };
+  }
   try {
     const info = await transporter.sendMail({
       from: `"${COMPANY_NAME}" <${COMPANY_EMAIL}>`,
@@ -149,7 +154,7 @@ function buildSupportNotificationEmail({ visitorName, visitorEmail, messageConte
 /**
  * Build a shipment status update email for tracking subscribers
  */
-function buildTrackingUpdateEmail({ trackingId, status, statusLabel, location, notes, recipientName, pauseCategory, pauseReason }) {
+function buildTrackingUpdateEmail({ trackingId, status, statusLabel, location, notes, recipientName, pauseCategory, pauseReason, footerNote }) {
   const trackingLink = trackingUrl(trackingId);
 
   const statusColors = {
@@ -219,7 +224,7 @@ function buildTrackingUpdateEmail({ trackingId, status, statusLabel, location, n
       </div>
 
       <p style="color: #9ca3af; font-size: 12px; margin-top: 24px; text-align: center;">
-        You're receiving this because you subscribed to tracking updates for shipment ${trackingId}.
+        ${footerNote || `You're receiving this because you subscribed to tracking updates for shipment ${trackingId}.`}
       </p>
     `,
   });

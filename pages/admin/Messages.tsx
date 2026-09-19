@@ -5,6 +5,7 @@ import {
   Archive, RotateCcw, Loader2, Inbox, Filter, X, Mail, MailOpen
 } from 'lucide-react';
 import * as api from '../../services/api';
+import { useDebounced } from './components/useDebounced';
 
 interface Conversation {
   id: number;
@@ -43,8 +44,10 @@ const Messages: React.FC = () => {
   const [filter, setFilter] = useState<'all' | 'open' | 'closed'>('all');
   const [search, setSearch] = useState('');
   const [unreadTotal, setUnreadTotal] = useState(0);
+  const [error, setError] = useState('');
+  const debouncedSearch = useDebounced(search);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
@@ -57,16 +60,16 @@ const Messages: React.FC = () => {
     try {
       const res = await api.messages.adminListConversations({
         status: filter === 'all' ? undefined : filter,
-        search: search || undefined,
+        search: debouncedSearch.trim() || undefined,
       });
       setConversations(res.conversations || []);
       setUnreadTotal(res.unread_total || 0);
-    } catch (err) {
-      console.error('Failed to fetch conversations:', err);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load conversations.');
     } finally {
       setLoading(false);
     }
-  }, [filter, search]);
+  }, [filter, debouncedSearch]);
 
   useEffect(() => { fetchConversations(); }, [fetchConversations]);
 
@@ -90,8 +93,8 @@ const Messages: React.FC = () => {
       setConversations(prev =>
         prev.map(c => c.id === convo.id ? { ...c, unread_count: 0 } : c)
       );
-    } catch (err) {
-      console.error('Failed to load conversation:', err);
+    } catch (err: any) {
+      setError(err.message || 'Failed to open the conversation.');
     } finally {
       setMessagesLoading(false);
     }
@@ -127,8 +130,8 @@ const Messages: React.FC = () => {
       setMessages(prev => [...prev, res.message]);
       scrollToBottom();
       fetchConversations();
-    } catch (err) {
-      console.error('Reply failed:', err);
+    } catch (err: any) {
+      setError(err.message || 'Your reply could not be sent.');
       setReplyText(content);
     } finally {
       setSending(false);
@@ -153,8 +156,8 @@ const Messages: React.FC = () => {
       if (selectedConvo?.id === convo.id) {
         setSelectedConvo(prev => prev ? { ...prev, status: prev.status === 'open' ? 'closed' : 'open' } : null);
       }
-    } catch (err) {
-      console.error('Toggle status failed:', err);
+    } catch (err: any) {
+      setError(err.message || 'Failed to update the conversation.');
     }
   };
 
@@ -217,6 +220,13 @@ const Messages: React.FC = () => {
             />
           </div>
         </div>
+
+        {error && (
+          <div className="mx-5 mt-3 flex items-center justify-between bg-red-50 border border-red-200 text-red-700 text-xs px-3 py-2 rounded-lg">
+            {error}
+            <button onClick={() => setError('')} aria-label="Dismiss"><X size={12} /></button>
+          </div>
+        )}
 
         {/* Conversation list */}
         <div className="flex-1 overflow-y-auto">

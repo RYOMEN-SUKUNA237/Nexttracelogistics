@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Star, CheckCircle, XCircle, Trash2, Search, Clock, Eye, Loader2, MessageSquare, Filter } from 'lucide-react';
 import * as api from '../../services/api';
+import { useDebounced } from './components/useDebounced';
 
 interface Review {
   id: number;
@@ -23,23 +24,24 @@ const AdminReviews: React.FC = () => {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [actionLoading, setActionLoading] = useState<number | null>(null);
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [error, setError] = useState('');
+  const debouncedSearch = useDebounced(search);
 
   const fetchReviews = useCallback(async () => {
     try {
-      setLoading(true);
       const data = await api.reviews.adminList({
         status: filter !== 'all' ? filter : undefined,
-        search: search || undefined,
+        search: debouncedSearch.trim() || undefined,
       });
-      setReviews(data.reviews);
-      setCounts(data.counts);
-    } catch (err) {
-      console.error('Failed to fetch reviews:', err);
+      setReviews(data.reviews || []);
+      setCounts(data.counts || { pending: 0, approved: 0, rejected: 0, total: 0 });
+      setError('');
+    } catch (err: any) {
+      setError(err.message || 'Failed to load reviews.');
     } finally {
       setLoading(false);
     }
-  }, [filter, search]);
+  }, [filter, debouncedSearch]);
 
   useEffect(() => { fetchReviews(); }, [fetchReviews]);
 
@@ -48,8 +50,8 @@ const AdminReviews: React.FC = () => {
     try {
       await api.reviews.adminApprove(id);
       await fetchReviews();
-    } catch (err) {
-      console.error('Failed to approve:', err);
+    } catch (err: any) {
+      setError(err.message || 'Failed to approve the review.');
     } finally {
       setActionLoading(null);
     }
@@ -60,8 +62,8 @@ const AdminReviews: React.FC = () => {
     try {
       await api.reviews.adminReject(id);
       await fetchReviews();
-    } catch (err) {
-      console.error('Failed to reject:', err);
+    } catch (err: any) {
+      setError(err.message || 'Failed to update the review.');
     } finally {
       setActionLoading(null);
     }
@@ -73,8 +75,8 @@ const AdminReviews: React.FC = () => {
     try {
       await api.reviews.adminDelete(id);
       await fetchReviews();
-    } catch (err) {
-      console.error('Failed to delete:', err);
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete the review.');
     } finally {
       setActionLoading(null);
     }
@@ -105,6 +107,13 @@ const AdminReviews: React.FC = () => {
           <p className="text-sm text-gray-500 mt-1">Manage and moderate customer reviews before they go live.</p>
         </div>
       </div>
+
+      {error && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-lg">
+          {error}
+          <button onClick={() => setError('')} aria-label="Dismiss"><XCircle className="w-4 h-4" /></button>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -177,7 +186,7 @@ const AdminReviews: React.FC = () => {
               }`}
             >
               <div className="flex items-start gap-4">
-                <img src={review.avatar} alt={review.name} className="w-11 h-11 rounded-full object-cover flex-shrink-0" />
+                <img src={review.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(review.name)}`} alt="" className="w-11 h-11 rounded-full object-cover flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
                     <h4 className="font-semibold text-[#0a192f] text-sm">{review.name}</h4>

@@ -1,6 +1,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const { authMiddleware } = require('../middleware/auth');
+const { notify } = require('../utils/notify');
 const { generateCustomerId } = require('../utils/generators');
 
 const router = express.Router();
@@ -110,11 +111,7 @@ router.post('/', authMiddleware, async (req, res) => {
 
     const customer = inserted[0];
 
-    await pool.query('INSERT INTO notifications (title, message, type) VALUES ($1, $2, $3)', [
-      'New Customer Registered',
-      `${contact_name} (${customerId}) has been registered.`,
-      'info'
-    ]);
+    await notify('customer_registered', 'New Customer Registered', `${contact_name} (${customerId}) has been registered.`, 'info');
 
     res.status(201).json({ customer });
   } catch (err) {
@@ -130,29 +127,39 @@ router.put('/:id', authMiddleware, async (req, res) => {
     const customer = rows[0];
     if (!customer) return res.status(404).json({ error: 'Customer not found.' });
 
-    const { contact_name, company_name, email, phone, address, city, state, country, postal_code, type, status, notes } = req.body;
+    const required = ['contact_name', 'email', 'phone', 'country'];
+    const optional = ['company_name', 'address', 'city', 'state', 'postal_code', 'notes'];
+    const updates = {};
+    for (const key of required) {
+      if (req.body[key] === undefined) continue;
+      const v = String(req.body[key]).trim();
+      if (!v) return res.status(400).json({ error: `${key.replace('_', ' ')} cannot be empty.` });
+      updates[key] = v;
+    }
+    for (const key of optional) {
+      if (req.body[key] === undefined) continue;
+      updates[key] = req.body[key] === null ? null : String(req.body[key]).trim() || null;
+    }
+    if (req.body.type !== undefined) {
+      if (!['individual', 'business'].includes(req.body.type)) return res.status(400).json({ error: 'Invalid customer type.' });
+      updates.type = req.body.type;
+    }
+    if (req.body.status !== undefined) {
+      if (!['active', 'inactive'].includes(req.body.status)) return res.status(400).json({ error: 'Invalid status.' });
+      updates.status = req.body.status;
+    }
+    if (updates.email && updates.email.toLowerCase() !== String(customer.email).toLowerCase()) {
+      const { rows: dup } = await pool.query('SELECT id FROM customers WHERE LOWER(email) = LOWER($1) AND id <> $2', [updates.email, customer.id]);
+      if (dup.length) return res.status(409).json({ error: 'Another customer already uses this email.' });
+    }
 
-    await pool.query(`
-      UPDATE customers SET
-        contact_name = COALESCE($1, contact_name),
-        company_name = COALESCE($2, company_name),
-        email = COALESCE($3, email),
-        phone = COALESCE($4, phone),
-        address = COALESCE($5, address),
-        city = COALESCE($6, city),
-        state = COALESCE($7, state),
-        country = COALESCE($8, country),
-        postal_code = COALESCE($9, postal_code),
-        type = COALESCE($10, type),
-        status = COALESCE($11, status),
-        notes = COALESCE($12, notes)
-      WHERE id = $13
-    `, [
-      contact_name || null, company_name || null, email || null, phone || null,
-      address || null, city || null, state || null, country || null,
-      postal_code || null, type || null, status || null, notes || null,
-      customer.id
-    ]);
+    const keys = Object.keys(updates);
+    if (keys.length > 0) {
+      await pool.query(
+        `UPDATE customers SET ${keys.map((k, i) => `${k} = $${i + 1}`).join(', ')} WHERE id = $${keys.length + 1}`,
+        [...keys.map((k) => updates[k]), customer.id]
+      );
+    }
 
     const { rows: updated } = await pool.query('SELECT * FROM customers WHERE id = $1', [customer.id]);
     res.json({ customer: updated[0] });

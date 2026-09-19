@@ -1,15 +1,13 @@
-import React, { useState } from 'react';
-import { 
-  UserPlus, Search, Filter, MoreVertical, Copy, Download, CheckCircle,
-  Bike, Car, Truck as TruckIcon, X, RefreshCw, Eye, ChevronDown, Loader2
+import React, { useMemo, useState } from 'react';
+import {
+  UserPlus, Search, Copy, CheckCircle, Bike, Car, Truck as TruckIcon, X, Eye, ChevronDown, Loader2, Edit2, Trash2,
 } from 'lucide-react';
-import { Courier, generateCourierId } from './types';
+import { Courier } from './types';
 import Barcode from '../../components/ui/Barcode';
 import * as api from '../../services/api';
 
 interface CouriersProps {
   couriers: Courier[];
-  setCouriers: React.Dispatch<React.SetStateAction<Courier[]>>;
   onRefresh: () => void;
 }
 
@@ -28,177 +26,172 @@ const statusColors: Record<string, string> = {
   'on-break': 'bg-amber-100 text-amber-700',
 };
 
-const Couriers: React.FC<CouriersProps> = ({ couriers, setCouriers, onRefresh }) => {
-  const [showForm, setShowForm] = useState(false);
+const STATUS_OPTIONS: Courier['status'][] = ['active', 'on-delivery', 'on-break', 'inactive'];
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const inputCls = 'w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none';
+const labelCls = 'block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide';
+
+type FormState = {
+  name: string; email: string; phone: string; vehicleType: Courier['vehicleType'];
+  licensePlate: string; zone: string; emergencyContact: string; notes: string;
+};
+const emptyForm: FormState = { name: '', email: '', phone: '', vehicleType: 'van', licensePlate: '', zone: '', emergencyContact: '', notes: '' };
+
+const Couriers: React.FC<CouriersProps> = ({ couriers, onRefresh }) => {
+  const [formMode, setFormMode] = useState<null | 'create' | 'edit'>(null);
+  const [editing, setEditing] = useState<Courier | null>(null);
+  const [formData, setFormData] = useState<FormState>(emptyForm);
+  const [formError, setFormError] = useState('');
+  const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [selectedCourier, setSelectedCourier] = useState<Courier | null>(null);
-  const [showBarcodeModal, setShowBarcodeModal] = useState(false);
+  const [barcodeFor, setBarcodeFor] = useState<{ courier: Courier; justRegistered: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [deleting, setDeleting] = useState<Courier | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
-  // Form state
-  const [formData, setFormData] = useState({
-    name: '', email: '', phone: '', vehicleType: 'van' as Courier['vehicleType'],
-    licensePlate: '', zone: '',
-  });
-  const [generatedId, setGeneratedId] = useState('');
-
-  const handleGenerateId = () => {
-    setGeneratedId(generateCourierId());
+  const openCreate = () => {
+    setFormData(emptyForm);
+    setEditing(null);
+    setFormError('');
+    setFormMode('create');
   };
 
-  const [saving, setSaving] = useState(false);
+  const openEdit = (c: Courier) => {
+    setFormData({
+      name: c.name, email: c.email, phone: c.phone || '', vehicleType: c.vehicleType,
+      licensePlate: c.licensePlate || '', zone: c.zone || '', emergencyContact: c.emergencyContact || '', notes: c.notes || '',
+    });
+    setEditing(c);
+    setFormError('');
+    setFormMode('edit');
+  };
 
-  const handleRegister = async () => {
-    if (!formData.name || !formData.email || !formData.phone) return;
+  const save = async () => {
+    setFormError('');
+    if (!formData.name.trim() || !formData.email.trim() || !formData.phone.trim()) return setFormError('Name, email and phone are required.');
+    if (!EMAIL_RE.test(formData.email.trim())) return setFormError('Enter a valid email address.');
+    const payload = {
+      name: formData.name.trim(),
+      email: formData.email.trim(),
+      phone: formData.phone.trim(),
+      vehicle_type: formData.vehicleType,
+      license_plate: formData.licensePlate.trim(),
+      zone: formData.zone.trim(),
+      emergency_contact: formData.emergencyContact.trim(),
+      notes: formData.notes.trim(),
+    };
     setSaving(true);
     try {
-      const res = await api.couriers.create({
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        vehicle_type: formData.vehicleType,
-        license_plate: formData.licensePlate,
-        zone: formData.zone,
-      });
-      const c = res.courier;
-      const newCourier: Courier = {
-        id: c.id.toString(),
-        courierId: c.courier_id,
-        name: c.name,
-        email: c.email,
-        phone: c.phone,
-        vehicleType: c.vehicle_type,
-        licensePlate: c.license_plate || '',
-        zone: c.zone || '',
-        status: c.status,
-        registeredAt: c.created_at?.split('T')[0] || '',
-        totalDeliveries: 0,
-        rating: 5.0,
-        avatar: c.avatar || '',
-      };
-      setFormData({ name: '', email: '', phone: '', vehicleType: 'van', licensePlate: '', zone: '' });
-      setGeneratedId(c.courier_id);
-      setShowForm(false);
-      setSelectedCourier(newCourier);
-      setShowBarcodeModal(true);
+      if (formMode === 'edit' && editing) {
+        await api.couriers.update(editing.courierId, payload);
+        setFormMode(null);
+      } else {
+        const res = await api.couriers.create(payload);
+        const c = res.courier;
+        setFormMode(null);
+        setBarcodeFor({
+          justRegistered: true,
+          courier: {
+            id: String(c.id), courierId: c.courier_id, name: c.name, email: c.email, phone: c.phone,
+            vehicleType: c.vehicle_type, licensePlate: c.license_plate || '', zone: c.zone || '', status: c.status,
+            registeredAt: c.created_at?.split('T')[0] || '', totalDeliveries: 0, rating: Number(c.rating) || 5, avatar: c.avatar || '',
+          },
+        });
+      }
       onRefresh();
     } catch (err: any) {
-      alert(err.message || 'Failed to register courier.');
+      setFormError(err.message || 'Failed to save the courier.');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleCopyId = (id: string) => {
-    navigator.clipboard.writeText(id);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleToggleStatus = async (courier: Courier) => {
-    const newStatus = courier.status === 'inactive' ? 'active' : 'inactive';
+  const copyId = async (id: string) => {
     try {
-      await api.couriers.updateStatus(courier.courierId, newStatus);
-      onRefresh();
-    } catch (err: any) {
-      alert(err.message || 'Failed to update status.');
+      await navigator.clipboard.writeText(id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError('Copy failed — your browser blocked clipboard access.');
     }
   };
 
-  const filtered = couriers.filter(c => {
-    const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.courierId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.zone.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || c.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const changeStatus = async (courier: Courier, status: string) => {
+    if (status === courier.status) return;
+    setBusyId(courier.courierId);
+    setError('');
+    try {
+      await api.couriers.updateStatus(courier.courierId, status);
+      onRefresh();
+    } catch (err: any) {
+      setError(err.message || 'Failed to update the status.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    setBusyId(deleting.courierId);
+    try {
+      await api.couriers.delete(deleting.courierId);
+      setDeleting(null);
+      onRefresh();
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete the courier.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const filtered = useMemo(() => couriers.filter((c) => {
+    const q = searchQuery.toLowerCase();
+    const matchesSearch = !q || [c.name, c.courierId, c.zone, c.email, c.phone].some((v) => (v || '').toLowerCase().includes(q));
+    return matchesSearch && (statusFilter === 'all' || c.status === statusFilter);
+  }), [couriers, searchQuery, statusFilter]);
+
+  const set = (k: keyof FormState, v: string) => setFormData((p) => ({ ...p, [k]: v }));
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-[#0a192f]">Courier Management</h2>
           <p className="text-sm text-gray-500">{couriers.length} registered couriers</p>
         </div>
-        <button
-          onClick={() => { setShowForm(true); handleGenerateId(); }}
-          className="px-5 py-2.5 bg-[#0a192f] text-white text-sm font-medium rounded-lg hover:bg-[#112d57] transition-colors flex items-center gap-2 self-start sm:self-auto"
-        >
+        <button onClick={openCreate} className="px-5 py-2.5 bg-[#0a192f] text-white text-sm font-medium rounded-lg hover:bg-[#112d57] flex items-center gap-2 self-start sm:self-auto">
           <UserPlus size={16} /> Register Courier
         </button>
       </div>
 
-      {/* Registration Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowForm(false)}>
+      {error && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-lg">
+          {error}
+          <button onClick={() => setError('')} aria-label="Dismiss"><X size={14} /></button>
+        </div>
+      )}
+
+      {formMode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setFormMode(null)}>
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-[#0a192f]">Register New Courier</h3>
-              <button onClick={() => setShowForm(false)} className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
-                <X size={20} className="text-gray-500" />
-              </button>
+              <div>
+                <h3 className="text-lg font-bold text-[#0a192f]">{formMode === 'edit' ? 'Edit Courier' : 'Register New Courier'}</h3>
+                {formMode === 'edit' && editing && <p className="text-xs text-gray-400 font-mono">{editing.courierId}</p>}
+                {formMode === 'create' && <p className="text-xs text-gray-400">The courier ID and barcode are issued when you register.</p>}
+              </div>
+              <button onClick={() => setFormMode(null)} className="p-1 hover:bg-gray-100 rounded-lg" aria-label="Close"><X size={20} className="text-gray-500" /></button>
             </div>
             <div className="p-6 space-y-5">
-              {/* Generated ID */}
-              <div className="bg-[#0a192f] text-white p-4 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-gray-300 uppercase tracking-wider font-medium">Courier ID (Auto-Generated)</span>
-                  <button onClick={handleGenerateId} className="text-xs text-blue-300 hover:text-white flex items-center gap-1 transition-colors">
-                    <RefreshCw size={12} /> Regenerate
-                  </button>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xl sm:text-2xl font-mono font-bold tracking-wider">{generatedId || '—'}</span>
-                  {generatedId && (
-                    <button onClick={() => handleCopyId(generatedId)} className="p-1.5 bg-white/10 rounded hover:bg-white/20 transition-colors">
-                      {copied ? <CheckCircle size={16} className="text-green-400" /> : <Copy size={16} />}
-                    </button>
-                  )}
-                </div>
-                {generatedId && (
-                  <div className="mt-3 flex justify-center bg-white/10 rounded p-3">
-                    <Barcode value={generatedId} width={220} height={50} />
-                  </div>
-                )}
-              </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div><label className={labelCls}>Full name *</label><input className={inputCls} value={formData.name} onChange={(e) => set('name', e.target.value)} placeholder="John Smith" /></div>
+                <div><label className={labelCls}>Email *</label><input type="email" className={inputCls} value={formData.email} onChange={(e) => set('email', e.target.value)} placeholder="john@example.com" /></div>
+                <div><label className={labelCls}>Phone *</label><input type="tel" className={inputCls} value={formData.phone} onChange={(e) => set('phone', e.target.value)} placeholder="+1 555-0100" /></div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Full Name *</label>
-                  <input
-                    type="text" value={formData.name}
-                    onChange={(e) => setFormData(p => ({ ...p, name: e.target.value }))}
-                    placeholder="John Smith"
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Email *</label>
-                  <input
-                    type="email" value={formData.email}
-                    onChange={(e) => setFormData(p => ({ ...p, email: e.target.value }))}
-                    placeholder="john@auratrack.com"
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Phone *</label>
-                  <input
-                    type="tel" value={formData.phone}
-                    onChange={(e) => setFormData(p => ({ ...p, phone: e.target.value }))}
-                    placeholder="+1 555-0100"
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Vehicle Type</label>
-                  <select
-                    value={formData.vehicleType}
-                    onChange={(e) => setFormData(p => ({ ...p, vehicleType: e.target.value as Courier['vehicleType'] }))}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none bg-white"
-                  >
+                  <label className={labelCls}>Vehicle type</label>
+                  <select className={`${inputCls} bg-white`} value={formData.vehicleType} onChange={(e) => set('vehicleType', e.target.value)}>
                     <option value="motorcycle">Motorcycle</option>
                     <option value="bicycle">Bicycle</option>
                     <option value="car">Car</option>
@@ -206,36 +199,19 @@ const Couriers: React.FC<CouriersProps> = ({ couriers, setCouriers, onRefresh })
                     <option value="truck">Truck</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">License Plate</label>
-                  <input
-                    type="text" value={formData.licensePlate}
-                    onChange={(e) => setFormData(p => ({ ...p, licensePlate: e.target.value }))}
-                    placeholder="TX-1234-AB"
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Assigned Zone</label>
-                  <input
-                    type="text" value={formData.zone}
-                    onChange={(e) => setFormData(p => ({ ...p, zone: e.target.value }))}
-                    placeholder="Downtown Houston"
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none"
-                  />
-                </div>
+                <div><label className={labelCls}>License plate</label><input className={inputCls} value={formData.licensePlate} onChange={(e) => set('licensePlate', e.target.value)} placeholder="TX-1234-AB" /></div>
+                <div><label className={labelCls}>Assigned zone</label><input className={inputCls} value={formData.zone} onChange={(e) => set('zone', e.target.value)} placeholder="Downtown Houston" /></div>
+                <div><label className={labelCls}>Emergency contact</label><input className={inputCls} value={formData.emergencyContact} onChange={(e) => set('emergencyContact', e.target.value)} /></div>
+                <div><label className={labelCls}>Notes</label><input className={inputCls} value={formData.notes} onChange={(e) => set('notes', e.target.value)} /></div>
               </div>
-
+              {formMode === 'create' && <p className="text-xs text-gray-400">New couriers start as inactive — activate them when they are ready to take shipments.</p>}
+              {formError && <p className="text-sm text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded-lg">{formError}</p>}
               <div className="flex gap-3 pt-2">
-                <button onClick={() => setShowForm(false)} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
-                  Cancel
-                </button>
-                <button
-                  onClick={handleRegister}
-                  disabled={!formData.name || !formData.email || !formData.phone || !generatedId}
-                  className="flex-1 px-4 py-2.5 bg-[#0a192f] text-white text-sm font-medium rounded-lg hover:bg-[#112d57] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Register & Generate Barcode
+                <button onClick={() => setFormMode(null)} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50">Cancel</button>
+                <button onClick={save} disabled={saving}
+                  className="flex-1 px-4 py-2.5 bg-[#0a192f] text-white text-sm font-medium rounded-lg hover:bg-[#112d57] disabled:opacity-40 flex items-center justify-center gap-2">
+                  {saving && <Loader2 size={14} className="animate-spin" />}
+                  {formMode === 'edit' ? 'Save changes' : 'Register & generate barcode'}
                 </button>
               </div>
             </div>
@@ -243,71 +219,68 @@ const Couriers: React.FC<CouriersProps> = ({ couriers, setCouriers, onRefresh })
         </div>
       )}
 
-      {/* Barcode Modal */}
-      {showBarcodeModal && selectedCourier && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowBarcodeModal(false)}>
+      {barcodeFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setBarcodeFor(null)}>
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <div className="p-6 text-center space-y-4">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-                <CheckCircle size={32} className="text-green-600" />
-              </div>
-              <h3 className="text-lg font-bold text-[#0a192f]">Courier Registered Successfully!</h3>
-              <p className="text-sm text-gray-500">{selectedCourier.name} has been registered.</p>
-              
+              {barcodeFor.justRegistered && (
+                <>
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto"><CheckCircle size={32} className="text-green-600" /></div>
+                  <h3 className="text-lg font-bold text-[#0a192f]">Courier registered</h3>
+                </>
+              )}
+              <p className="text-sm text-gray-500">{barcodeFor.courier.name}</p>
               <div className="bg-gray-50 rounded-lg p-5 space-y-3">
-                <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Courier ID & Barcode</p>
-                <div className="flex justify-center">
-                  <Barcode value={selectedCourier.courierId} width={250} height={65} />
-                </div>
+                <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Courier ID & barcode</p>
+                <p className="font-mono font-bold text-lg text-[#0a192f]">{barcodeFor.courier.courierId}</p>
+                <div className="flex justify-center"><Barcode value={barcodeFor.courier.courierId} width={250} height={65} /></div>
               </div>
-
               <div className="flex gap-3">
-                <button
-                  onClick={() => handleCopyId(selectedCourier.courierId)}
-                  className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-                >
+                <button onClick={() => copyId(barcodeFor.courier.courierId)} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2">
                   <Copy size={14} /> {copied ? 'Copied!' : 'Copy ID'}
                 </button>
-                <button
-                  onClick={() => setShowBarcodeModal(false)}
-                  className="flex-1 px-4 py-2.5 bg-[#0a192f] text-white text-sm font-medium rounded-lg hover:bg-[#112d57] transition-colors"
-                >
-                  Done
-                </button>
+                <button onClick={() => setBarcodeFor(null)} className="flex-1 px-4 py-2.5 bg-[#0a192f] text-white text-sm font-medium rounded-lg hover:bg-[#112d57]">Done</button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Search + Filter */}
+      {deleting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setDeleting(null)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-[#0a192f]">Delete {deleting.name}?</h3>
+            <p className="text-sm text-gray-600">The courier is removed permanently and unassigned from any shipment that is not yet completed.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleting(null)} className="flex-1 px-4 py-2 border border-gray-200 text-sm rounded-lg">Cancel</button>
+              <button onClick={confirmDelete} disabled={busyId === deleting.courierId} className="flex-1 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg disabled:opacity-50">
+                {busyId === deleting.courierId ? 'Deleting…' : 'Delete courier'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text" value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, ID, or zone..."
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none"
-          />
+          <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by name, ID, zone, email or phone…"
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none" />
         </div>
         <div className="relative">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="appearance-none pl-4 pr-10 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] outline-none bg-white"
-          >
-            <option value="all">All Status</option>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+            className="appearance-none pl-4 pr-10 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] outline-none bg-white">
+            <option value="all">All statuses</option>
             <option value="active">Active</option>
-            <option value="on-delivery">On Delivery</option>
-            <option value="on-break">On Break</option>
+            <option value="on-delivery">On delivery</option>
+            <option value="on-break">On break</option>
             <option value="inactive">Inactive</option>
           </select>
           <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
         </div>
       </div>
 
-      {/* Courier Table */}
       <div className="bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -327,75 +300,48 @@ const Couriers: React.FC<CouriersProps> = ({ couriers, setCouriers, onRefresh })
                 <tr key={courier.id} className="hover:bg-gray-50/50 transition-colors">
                   <td className="px-4 sm:px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <img src={courier.avatar} alt={courier.name} className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+                      <img src={courier.avatar} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-[#0a192f] truncate">{courier.name}</p>
-                        <p className="text-xs text-gray-400 truncate">{courier.email}</p>
+                        <p className="text-xs text-gray-400 truncate">{courier.email} · {courier.phone}</p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-4 hidden md:table-cell">
-                    <span className="text-xs font-mono text-gray-600 bg-gray-100 px-2 py-1 rounded">{courier.courierId}</span>
-                  </td>
+                  <td className="px-4 py-4 hidden md:table-cell"><span className="text-xs font-mono text-gray-600 bg-gray-100 px-2 py-1 rounded">{courier.courierId}</span></td>
                   <td className="px-4 py-4 hidden lg:table-cell">
-                    <div className="flex items-center gap-2 text-sm text-gray-600 capitalize">
-                      {vehicleIcons[courier.vehicleType]} {courier.vehicleType}
-                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-600 capitalize">{vehicleIcons[courier.vehicleType]} {courier.vehicleType}{courier.licensePlate ? <span className="text-xs text-gray-400 normal-case">· {courier.licensePlate}</span> : null}</div>
                   </td>
-                  <td className="px-4 py-4 hidden sm:table-cell">
-                    <span className="text-sm text-gray-600">{courier.zone}</span>
-                  </td>
+                  <td className="px-4 py-4 hidden sm:table-cell"><span className="text-sm text-gray-600">{courier.zone || '—'}</span></td>
                   <td className="px-4 py-4">
-                    <span className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full capitalize ${statusColors[courier.status]}`}>
-                      {courier.status.replace('-', ' ')}
-                    </span>
+                    <select value={courier.status} disabled={busyId === courier.courierId}
+                      onChange={(e) => changeStatus(courier, e.target.value)}
+                      aria-label={`Status of ${courier.name}`}
+                      className={`px-2.5 py-1 text-xs font-medium rounded-full border-0 cursor-pointer outline-none capitalize ${statusColors[courier.status]}`}>
+                      {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s.replace('-', ' ')}</option>)}
+                    </select>
                   </td>
                   <td className="px-4 py-4 hidden lg:table-cell">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-[#0a192f]">{courier.totalDeliveries}</span>
-                      <span className="text-xs text-yellow-600">★ {courier.rating}</span>
-                    </div>
+                    <span className="text-sm font-medium text-[#0a192f]">{courier.totalDeliveries}</span>
+                    <span className="text-xs text-yellow-600 ml-2">★ {Number(courier.rating).toFixed(1)}</span>
                   </td>
                   <td className="px-4 sm:px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => { setSelectedCourier(courier); setShowBarcodeModal(true); }}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-[#0a192f]"
-                        title="View Barcode"
-                      >
-                        <Eye size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleCopyId(courier.courierId)}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-[#0a192f]"
-                        title="Copy ID"
-                      >
-                        <Copy size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleToggleStatus(courier)}
-                        className={`p-2 hover:bg-gray-100 rounded-lg transition-colors text-xs font-medium ${
-                          courier.status === 'inactive' ? 'text-green-600' : 'text-red-500'
-                        }`}
-                        title={courier.status === 'inactive' ? 'Activate' : 'Deactivate'}
-                      >
-                        {courier.status === 'inactive' ? 'Activate' : 'Deactivate'}
-                      </button>
+                      <button onClick={() => setBarcodeFor({ courier, justRegistered: false })} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-[#0a192f]" title="View barcode"><Eye size={16} /></button>
+                      <button onClick={() => copyId(courier.courierId)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-[#0a192f]" title="Copy ID"><Copy size={16} /></button>
+                      <button onClick={() => openEdit(courier)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-blue-600" title="Edit"><Edit2 size={16} /></button>
+                      <button onClick={() => setDeleting(courier)} className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-600" title="Delete"><Trash2 size={16} /></button>
                     </div>
                   </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-gray-400">
-                    No couriers found matching your criteria.
-                  </td>
-                </tr>
+                <tr><td colSpan={7} className="px-6 py-12 text-center text-sm text-gray-400">No couriers found matching your criteria.</td></tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
+      {copied && !barcodeFor && <div className="fixed bottom-4 right-4 z-50 bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-2 rounded-lg shadow">ID copied</div>}
     </div>
   );
 };

@@ -19,6 +19,34 @@ if (!SECRET || SECRET.length < 32) {
  * On any valid auth the middleware attaches req.user and calls next().
  * On failure it returns 401 with a clear message.
  */
+/**
+ * Only accounts on the admin allowlist may use the admin API.
+ * ADMIN_EMAILS is a comma-separated list; users whose Supabase app_metadata
+ * has role "admin" are always allowed. When ADMIN_EMAILS is not set every
+ * Supabase account is accepted (previous behaviour) and a warning is logged.
+ */
+let warnedNoAllowlist = false;
+function isAllowedAdmin(user) {
+  if (!user) return false;
+  if (user.app_metadata && user.app_metadata.role === 'admin') return true;
+  const list = (process.env.ADMIN_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  if (list.length === 0) {
+    if (!warnedNoAllowlist) {
+      console.warn('⚠️  ADMIN_EMAILS is not set — every Supabase Auth account can use the admin API.');
+      warnedNoAllowlist = true;
+    }
+    return true;
+  }
+  return list.includes(String(user.email || '').toLowerCase());
+}
+
+function forbidden(res) {
+  return res.status(403).json({ error: 'This account is not authorised to use the admin dashboard.' });
+}
+
 async function authMiddleware(req, res, next) {
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) {
@@ -35,6 +63,7 @@ async function authMiddleware(req, res, next) {
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
     if (!error && user) {
+      if (!isAllowedAdmin(user)) return forbidden(res);
       req.user = {
         id: user.id,
         email: user.email,
@@ -56,6 +85,7 @@ async function authMiddleware(req, res, next) {
       });
 
       if (!refreshErr && data?.session?.access_token && data?.user) {
+        if (!isAllowedAdmin(data.user)) return forbidden(res);
         req.user = {
           id: data.user.id,
           email: data.user.email,
@@ -101,4 +131,4 @@ function generateToken(user) {
   );
 }
 
-module.exports = { authMiddleware, generateToken };
+module.exports = { authMiddleware, generateToken, isAllowedAdmin };

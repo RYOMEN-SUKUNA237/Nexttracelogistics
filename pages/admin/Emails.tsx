@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Search, Send, X, Eye, Trash2, Clock, CheckCircle, XCircle, AlertCircle, Loader2, Edit3, ChevronDown } from 'lucide-react';
 import * as api from '../../services/api';
+import { useDebounced } from './components/useDebounced';
 
 interface EmailDraft {
   id: number;
@@ -33,26 +34,25 @@ const Emails: React.FC = () => {
   const [previewDraft, setPreviewDraft] = useState<EmailDraft | null>(null);
   const [editSubject, setEditSubject] = useState('');
   const [sending, setSending] = useState<number | null>(null);
+  const [error, setError] = useState('');
+  const debouncedSearch = useDebounced(searchQuery);
 
   const fetchDrafts = async () => {
     try {
-      setLoading(true);
       const res = await api.emails.adminListDrafts({
         status: statusFilter,
-        search: searchQuery || undefined,
+        search: debouncedSearch.trim() || undefined,
       });
-      if (res.drafts) {
-        setDrafts(res.drafts);
-        setCounts(res.counts || {});
-      }
-    } catch (err) {
-      console.error('Fetch drafts error:', err);
+      setDrafts(res.drafts || []);
+      setCounts(res.counts || {});
+    } catch (err: any) {
+      setError(err.message || 'Failed to load emails.');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchDrafts(); }, [statusFilter, searchQuery]);
+  useEffect(() => { fetchDrafts(); }, [statusFilter, debouncedSearch]);
 
   const handleSend = async (id: number) => {
     if (!confirm('Are you sure you want to send this email?')) return;
@@ -62,8 +62,9 @@ const Emails: React.FC = () => {
       if (res.error) throw new Error(res.error);
       fetchDrafts();
       setSelectedDraft(null);
+      setPreviewDraft(null);
     } catch (err: any) {
-      alert(err.message || 'Failed to send email.');
+      setError(err.message || 'Failed to send the email.');
     } finally {
       setSending(null);
     }
@@ -75,8 +76,9 @@ const Emails: React.FC = () => {
       await api.emails.adminCancelDraft(id);
       fetchDrafts();
       setSelectedDraft(null);
+      setPreviewDraft(null);
     } catch (err: any) {
-      alert(err.message || 'Failed to cancel.');
+      setError(err.message || 'Failed to cancel the draft.');
     }
   };
 
@@ -84,19 +86,21 @@ const Emails: React.FC = () => {
     if (!confirm('Permanently delete this email?')) return;
     try {
       await api.emails.adminDeleteDraft(id);
+      if (previewDraft?.id === id) setPreviewDraft(null);
       fetchDrafts();
     } catch (err: any) {
-      alert(err.message || 'Failed to delete.');
+      setError(err.message || 'Failed to delete the email.');
     }
   };
 
   const handleUpdateSubject = async (id: number) => {
+    if (!editSubject.trim()) { setError('The subject cannot be empty.'); return; }
     try {
-      await api.emails.adminUpdateDraft(id, { subject: editSubject });
+      await api.emails.adminUpdateDraft(id, { subject: editSubject.trim() });
       fetchDrafts();
       setSelectedDraft(null);
     } catch (err: any) {
-      alert(err.message || 'Failed to update.');
+      setError(err.message || 'Failed to update the draft.');
     }
   };
 
@@ -114,6 +118,13 @@ const Emails: React.FC = () => {
         <h2 className="text-xl sm:text-2xl font-bold text-[#0a192f]">Email Management</h2>
         <p className="text-sm text-gray-500">Review and approve outgoing emails before they are sent to clients</p>
       </div>
+
+      {error && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-lg">
+          {error}
+          <button onClick={() => setError('')} aria-label="Dismiss"><X size={14} /></button>
+        </div>
+      )}
 
       {/* Status Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -298,9 +309,12 @@ const Emails: React.FC = () => {
                 <p className="text-xs text-gray-500 uppercase font-medium mb-1">Subject</p>
                 <p className="text-sm font-medium text-[#0a192f]">{previewDraft.subject}</p>
               </div>
-              <div
-                className="border border-gray-200 rounded-lg overflow-hidden"
-                dangerouslySetInnerHTML={{ __html: previewDraft.html_body }}
+              {/* Sandboxed: stored email HTML can never run scripts inside the admin. */}
+              <iframe
+                title="Email preview"
+                sandbox=""
+                srcDoc={previewDraft.html_body}
+                className="w-full h-[60vh] border border-gray-200 rounded-lg bg-white"
               />
               {previewDraft.status === 'draft' && (
                 <div className="flex gap-3 mt-4 pt-4 border-t border-gray-100">

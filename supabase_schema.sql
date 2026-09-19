@@ -134,6 +134,13 @@ CREATE TABLE IF NOT EXISTS shipments (
   pause_category      TEXT,
   pause_reason        TEXT,
   scheduled_transit_stops JSONB DEFAULT '[]',
+  multi_modal_segments JSONB,
+  multi_modal_stops   JSONB,
+  pet_details         JSONB,
+  status_before_pause TEXT,
+  timeline_events     JSONB,
+  eta_overridden      BOOLEAN DEFAULT FALSE,
+  route_mode          TEXT,
   created_at          TIMESTAMPTZ DEFAULT NOW(),
   updated_at          TIMESTAMPTZ DEFAULT NOW()
 );

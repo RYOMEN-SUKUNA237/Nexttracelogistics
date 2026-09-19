@@ -21,6 +21,7 @@
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^8.0.6",
     "pg": "^8.13.1",
+    "searoute-js": "^0.1.0",
     "uuid": "^11.0.5"
   }
 }

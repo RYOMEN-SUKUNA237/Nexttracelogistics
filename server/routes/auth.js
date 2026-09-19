@@ -1,7 +1,11 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { pool, supabase } = require('../db');
-const { authMiddleware, generateToken } = require('../middleware/auth');
+const { authMiddleware, generateToken, isAllowedAdmin } = require('../middleware/auth');
+
+// Local test environment only (local-dev/): sign in against the legacy
+// `users` table instead of Supabase Auth. Never enable this in production.
+const LEGACY_LOGIN = process.env.ALLOW_LEGACY_LOGIN === 'true';
 
 const router = express.Router();
 
@@ -73,7 +77,19 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required.' });
     }
 
-    // Authenticate via Supabase Auth only
+    if (LEGACY_LOGIN) {
+      const { rows } = await pool.query('SELECT * FROM users WHERE email = $1 OR username = $1', [username]);
+      const user = rows[0];
+      if (!user || !(await bcrypt.compare(password, user.password))) {
+        return res.status(401).json({ error: 'Invalid credentials.' });
+      }
+      return res.json({
+        user: { id: user.id, email: user.email, full_name: user.full_name, role: user.role, phone: user.phone },
+        token: generateToken(user),
+      });
+    }
+
+    // Authenticate via Supabase Auth
     const { data, error } = await supabase.auth.signInWithPassword({
       email: username,
       password: password,
@@ -81,6 +97,9 @@ router.post('/login', async (req, res) => {
 
     if (error || !data?.user || !data?.session) {
       return res.status(401).json({ error: 'Invalid credentials.' });
+    }
+    if (!isAllowedAdmin(data.user)) {
+      return res.status(403).json({ error: 'This account is not authorised to use the admin dashboard.' });
     }
 
     // Supabase Auth succeeded — return both access + refresh tokens
@@ -183,6 +202,17 @@ router.put('/password', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'New password must be at least 6 characters.' });
     }
 
+    // Legacy (users table) account
+    if (req.user.username) {
+      const { rows } = await pool.query('SELECT password FROM users WHERE id = $1', [req.user.id]);
+      if (!rows[0] || !(await bcrypt.compare(current_password, rows[0].password))) {
+        return res.status(401).json({ error: 'Current password is incorrect.' });
+      }
+      const hash = await bcrypt.hash(new_password, 12);
+      await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hash, req.user.id]);
+      return res.json({ message: 'Password updated successfully.' });
+    }
+
     // Verify current password via Supabase Auth
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: req.user.email,
@@ -222,6 +252,9 @@ router.post('/refresh', async (req, res) => {
     if (error || !data?.session) {
       return res.status(401).json({ error: 'Refresh token invalid or expired. Please log in again.' });
     }
+    if (!isAllowedAdmin(data.user)) {
+      return res.status(403).json({ error: 'This account is not authorised to use the admin dashboard.' });
+    }
 
     res.json({
       access_token: data.session.access_token,
@@ -235,6 +268,23 @@ router.post('/refresh', async (req, res) => {
     });
   } catch (err) {
     console.error('Token refresh error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// POST /api/auth/logout-all — revoke every session of the current admin (all devices)
+router.post('/logout-all', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.username) {
+      // Legacy tokens are stateless; nothing to revoke server-side.
+      return res.json({ message: 'Signed out.' });
+    }
+    const token = (req.headers.authorization || '').split(' ')[1];
+    const { error } = await supabase.auth.admin.signOut(token, 'global');
+    if (error) return res.status(500).json({ error: 'Could not sign out other sessions: ' + error.message });
+    res.json({ message: 'Signed out of all devices.' });
+  } catch (err) {
+    console.error('Logout-all error:', err);
     res.status(500).json({ error: 'Internal server error.' });
   }
 });

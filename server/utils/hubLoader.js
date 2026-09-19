@@ -52,6 +52,7 @@ function loadAirports() {
       lng: parseFloat(r.longitude_deg),
       type: r.type,
       country: r.country_name || r.iso_country || '',
+      score: parseFloat(r.score) || 0,
     }));
 }
 
@@ -86,18 +87,28 @@ function loadSeaports() {
 }
 
 // ─── Module initialization ────────────────────────────────────────────────────
+// Prefer the pre-built data file (server/data/hubs.json, see build-hubs.js):
+// it is ~0.5 MB instead of ~19 MB of CSV, so the API function stays small and
+// starts fast. The CSVs in public/ are the fallback for local development.
 try {
-  airports = loadAirports();
-  console.log(`✅ [hubLoader] Loaded ${airports.length} airports`);
+  const prebuilt = require('../data/hubs.json');
+  airports = prebuilt.airports || [];
+  seaports = prebuilt.seaports || [];
+  console.log(`✅ [hubLoader] Loaded ${airports.length} airports and ${seaports.length} seaports (pre-built)`);
 } catch (e) {
-  console.error('[hubLoader] Failed to load airports:', e.message);
-}
-
-try {
-  seaports = loadSeaports();
-  console.log(`✅ [hubLoader] Loaded ${seaports.length} seaports`);
-} catch (e) {
-  console.error('[hubLoader] Failed to load seaports:', e.message);
+  console.warn('[hubLoader] Pre-built hub data unavailable, parsing CSVs:', e.message);
+  try {
+    airports = loadAirports();
+    console.log(`✅ [hubLoader] Loaded ${airports.length} airports`);
+  } catch (err) {
+    console.error('[hubLoader] Failed to load airports:', err.message);
+  }
+  try {
+    seaports = loadSeaports();
+    console.log(`✅ [hubLoader] Loaded ${seaports.length} seaports`);
+  } catch (err) {
+    console.error('[hubLoader] Failed to load seaports:', err.message);
+  }
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -218,6 +229,45 @@ function findNearestHub(lat, lng, type) {
   return null;
 }
 
+// ─── Cargo-hub selection (used by the multi-modal transport planner) ───────
+
+/**
+ * Best cargo airport for a location: among the large airports close to the
+ * nearest one, pick the busiest (e.g. JFK rather than LaGuardia for New York).
+ * Falls back to a nearby medium airport with scheduled service.
+ */
+function findCargoAirport(lat, lng) {
+  const near = findNearestAirports(lat, lng, 60);
+  const large = near.filter(a => a.type === 'large_airport');
+  if (large.length > 0) {
+    const reach = Math.max(large[0].distanceKm + 40, 60);
+    const candidates = large.filter(a => a.distanceKm <= reach).sort((a, b) => b.score - a.score);
+    if (candidates[0] && candidates[0].distanceKm <= 350) return candidates[0];
+  }
+  if (near[0] && near[0].distanceKm <= 150) return near[0];
+  return large[0] || near[0] || findNearestHub(lat, lng, 'airport');
+}
+
+/** Busy large airports within `radiusKm` of a point (refuelling candidates). */
+function findMajorAirportsNear(lat, lng, radiusKm = 2500, minScore = 50000) {
+  return findNearestAirports(lat, lng, 300)
+    .filter(a => a.type === 'large_airport' && a.iata && a.score >= minScore && a.distanceKm <= radiusKm);
+}
+
+const LANDLOCKED_WATER = /great lakes|caspian|lake /i;
+
+/**
+ * Best ocean container port for a location. Lake ports (Great Lakes, Caspian)
+ * are skipped; a large port is preferred when it is not much further away.
+ */
+function findCargoSeaport(lat, lng) {
+  const near = findNearestSeaports(lat, lng, 80).filter(p => !LANDLOCKED_WATER.test(p.waterBody || ''));
+  if (near.length === 0) return findNearestHub(lat, lng, 'seaport');
+  const large = near.filter(p => String(p.harborSize).toLowerCase() === 'large');
+  if (large[0] && large[0].distanceKm <= near[0].distanceKm + 150) return large[0];
+  return near[0];
+}
+
 /**
  * Expose full dataset counts (for health checks / admin API).
  */
@@ -225,4 +275,12 @@ function getStats() {
   return { airportCount: airports.length, seaportCount: seaports.length };
 }
 
-module.exports = { findNearestAirports, findNearestSeaports, findNearestHub, getStats };
+module.exports = {
+  findNearestAirports,
+  findNearestSeaports,
+  findNearestHub,
+  findCargoAirport,
+  findCargoSeaport,
+  findMajorAirportsNear,
+  getStats,
+};

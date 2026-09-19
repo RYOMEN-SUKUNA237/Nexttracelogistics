@@ -15,6 +15,37 @@
 const express = require('express');
 const router = express.Router();
 const { findNearestAirports, findNearestSeaports, findNearestHub, getStats } = require('../utils/hubLoader');
+const { authMiddleware } = require('../middleware/auth');
+const { buildPlans } = require('../utils/transportPlanner');
+
+// ─── POST /api/routing/plans (admin) ──────────────────────────────────────────
+// Body: { origin: {name,lat,lng}, destination: {name,lat,lng}, vias?: [{name,lat,lng}],
+//         cargoType?, mapboxToken? }
+// Returns every realistic transport option (road / air / sea) with segments,
+// stops and timings — used by the admin "Create Shipment" planner.
+router.post('/plans', authMiddleware, async (req, res) => {
+  try {
+    const { origin, destination, vias = [], cargoType, mapboxToken } = req.body || {};
+    const valid = (p) => p && typeof p.name === 'string' && isFinite(p.lat) && isFinite(p.lng)
+      && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180;
+    if (!valid(origin) || !valid(destination)) {
+      return res.status(400).json({ error: 'origin and destination must include name, lat and lng.' });
+    }
+    if (!Array.isArray(vias) || vias.length > 6 || !vias.every(valid)) {
+      return res.status(400).json({ error: 'vias must be a list of up to 6 airports with name, lat and lng.' });
+    }
+    const token = process.env.MAPBOX_TOKEN || (typeof mapboxToken === 'string' && mapboxToken.startsWith('pk.') ? mapboxToken : null);
+    const result = await buildPlans(
+      { name: origin.name, lat: Number(origin.lat), lng: Number(origin.lng) },
+      { name: destination.name, lat: Number(destination.lat), lng: Number(destination.lng) },
+      { token, vias: vias.map((v) => ({ name: v.name, lat: Number(v.lat), lng: Number(v.lng) })), cargoType }
+    );
+    res.json({ ...result, roadNetwork: !!token });
+  } catch (err) {
+    console.error('[routing] plans error:', err);
+    res.status(500).json({ error: 'Route planning failed.' });
+  }
+});
 
 // ─── Haversine (used inline for flight calcs) ─────────────────────────────────
 function haversineKm(lat1, lon1, lat2, lon2) {

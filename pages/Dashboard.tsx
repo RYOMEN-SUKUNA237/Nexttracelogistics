@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Map as MapIcon, Package, Users, Settings as SettingsIcon, 
   Bell, LogOut, Menu, X, Search, ChevronDown, Loader2, UserCircle, Lock, Contact, MessageCircle, FileText, Star, Mail
 } from 'lucide-react';
-import { AdminPage, Courier, Shipment } from './admin/types';
+import { AdminPage, Courier, Shipment, toShipment } from './admin/types';
 import Overview from './admin/Overview';
 import Couriers from './admin/Couriers';
 import ShipmentsPage from './admin/Shipments';
@@ -76,7 +76,6 @@ const Dashboard: React.FC = () => {
   const [couriers, setCouriers] = useState<Courier[]>([]);
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [headerSearch, setHeaderSearch] = useState('');
 
   // Notifications state
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -90,6 +89,7 @@ const Dashboard: React.FC = () => {
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [adminUser, setAdminUser] = useState<any>(null);
+  const [shipmentSearch, setShipmentSearch] = useState('');
 
   // Check existing auth on mount
   useEffect(() => {
@@ -97,7 +97,10 @@ const Dashboard: React.FC = () => {
     if (token) {
       api.auth.me()
         .then(data => { setAdminUser(data.user); setIsLoggedIn(true); })
-        .catch(() => { api.removeToken(); })
+        .catch((err) => {
+          api.removeToken();
+          if (/not authorised/i.test(err?.message || '')) setLoginError(err.message);
+        })
         .finally(() => setLoading(false));
     } else {
       setLoading(false);
@@ -113,6 +116,8 @@ const Dashboard: React.FC = () => {
         api.shipments.list({ limit: 200 }),
       ]);
       // Map backend fields to frontend Courier/Shipment types
+      const courierNames: Record<string, string> = {};
+      courierRes.couriers.forEach((c: any) => { courierNames[c.courier_id] = c.name; });
       setCouriers(courierRes.couriers.map((c: any) => ({
         id: c.id.toString(),
         courierId: c.courier_id,
@@ -127,41 +132,38 @@ const Dashboard: React.FC = () => {
         totalDeliveries: c.total_deliveries,
         rating: c.rating,
         avatar: c.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(c.name)}&background=0a192f&color=fff&size=100`,
+        emergencyContact: c.emergency_contact || '',
+        notes: c.notes || '',
       })));
-      setShipments(shipmentRes.shipments.map((s: any) => ({
-        id: s.id.toString(),
-        trackingId: s.tracking_id,
-        sender: s.sender_name,
-        receiver: s.receiver_name,
-        origin: s.origin,
-        destination: s.destination,
-        status: s.status,
-        courierId: s.courier_id,
-        courierName: s.courier_id ? (courierRes.couriers.find((c: any) => c.courier_id === s.courier_id)?.name || 'Unknown') : 'Unassigned',
-        weight: s.weight || 'N/A',
-        type: s.cargo_type || 'General',
-        createdAt: s.created_at?.split('T')[0] || s.created_at,
-        estimatedDelivery: s.estimated_delivery || '',
-        progress: s.computed_progress ?? s.progress,
-        isPaused: !!s.is_paused,
-        pausedAt: s.paused_at || undefined,
-        paused_at: s.paused_at || undefined,
-        pauseCategory: s.pause_category || undefined,
-        pauseReason: s.pause_reason || undefined,
-        lat: s.current_lat || s.dest_lat,
-        lng: s.current_lng || s.dest_lng,
-        route_data: s.route_data,
-        transport_modes: s.transport_modes,
-        scheduled_transit_stops: s.scheduled_transit_stops,
-        multi_modal_stops: s.multi_modal_stops,
-        multi_modal_segments: s.multi_modal_segments,
-      })));
+      setShipments(shipmentRes.shipments.map((s: any) => toShipment(s, courierNames)));
     } catch (err) {
       console.error('Failed to fetch data:', err);
     }
   }, [isLoggedIn]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Keep statuses and positions fresh (the server advances timeline milestones on each fetch).
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const t = setInterval(() => { if (document.visibilityState === 'visible') fetchData(); }, 60000);
+    return () => clearInterval(t);
+  }, [isLoggedIn, fetchData]);
+
+  // An expired session (from any page) returns to the login screen once.
+  useEffect(() => {
+    const onExpired = () => {
+      setIsLoggedIn(false);
+      setAdminUser(null);
+      setCouriers([]);
+      setShipments([]);
+      setNotifications([]);
+      setUnreadCount(0);
+      setLoginError('Your session has expired. Please sign in again.');
+    };
+    window.addEventListener(api.SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(api.SESSION_EXPIRED_EVENT, onExpired);
+  }, []);
 
   // Fetch notifications
   const fetchNotifications = useCallback(async () => {
@@ -196,6 +198,7 @@ const Dashboard: React.FC = () => {
       if (data.token) api.setToken(data.token);
       if (data.refresh_token) api.setRefreshToken(data.refresh_token);
       setAdminUser(data.user);
+      setLoginForm({ username: '', password: '' });
       setIsLoggedIn(true);
     } catch (err: any) {
       setLoginError(err.message || 'Login failed.');
@@ -206,6 +209,7 @@ const Dashboard: React.FC = () => {
 
   const handleLogout = () => {
     api.removeToken();
+    setLoginError('');
     setIsLoggedIn(false);
     setAdminUser(null);
     setCouriers([]);
@@ -222,11 +226,11 @@ const Dashboard: React.FC = () => {
       case 'overview':
         return <Overview couriers={couriers} shipments={shipments} onNavigate={navigate} />;
       case 'couriers':
-        return <Couriers couriers={couriers} setCouriers={setCouriers} onRefresh={fetchData} />;
+        return <Couriers couriers={couriers} onRefresh={fetchData} />;
       case 'customers':
-        return <CustomersPage onRefresh={fetchData} />;
+        return <CustomersPage />;
       case 'shipments':
-        return <ShipmentsPage shipments={shipments} setShipments={setShipments} couriers={couriers} onNavigate={navigate} onRefresh={fetchData} />;
+        return <ShipmentsPage shipments={shipments} couriers={couriers} onRefresh={fetchData} search={shipmentSearch} onSearchChange={setShipmentSearch} />;
       case 'messages':
         return <MessagesPage />;
       case 'quotes':
@@ -422,9 +426,9 @@ const Dashboard: React.FC = () => {
                 <input
                   type="text"
                   placeholder="Search shipments..."
-                  value={headerSearch}
+                  value={shipmentSearch}
                   onChange={(e) => {
-                    setHeaderSearch(e.target.value);
+                    setShipmentSearch(e.target.value);
                     if (e.target.value) { setActivePage('shipments'); setSidebarOpen(false); }
                   }}
                   className="pl-9 pr-4 py-2 w-48 lg:w-64 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:border-[#0a192f] focus:ring-1 focus:ring-[#0a192f] outline-none"
@@ -436,7 +440,7 @@ const Dashboard: React.FC = () => {
                 <button
                   onClick={async () => {
                     setNotifOpen(v => !v);
-                    if (!notifOpen) {
+                    if (!notifOpen && isLoggedIn) {
                       await fetchNotifications();
                       // Mark all as read after opening
                       if (unreadCount > 0) {
@@ -502,7 +506,7 @@ const Dashboard: React.FC = () => {
           {/* TrackMap: always mounted, shown/hidden via CSS */}
           <div style={{ display: activePage === 'track-map' ? 'block' : 'none' }}>
             <ErrorBoundary label="Live Map">
-              <TrackMap shipments={shipments} setShipments={setShipments} onRefresh={fetchData} />
+              <TrackMap shipments={shipments} onRefresh={fetchData} />
             </ErrorBoundary>
           </div>
 

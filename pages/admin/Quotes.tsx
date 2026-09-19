@@ -7,6 +7,7 @@ import {
   Truck, Package, Warehouse, Box, PawPrint
 } from 'lucide-react';
 import { quotes } from '../../services/api';
+import { useDebounced } from './components/useDebounced';
 
 interface Quote {
   id: number;
@@ -64,22 +65,27 @@ const QuotesPage: React.FC = () => {
   const [editNotes, setEditNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+  const debouncedSearch = useDebounced(search);
 
   const fetchQuotes = useCallback(async () => {
     try {
-      setLoading(true);
+      setRefreshing(true);
       const [listRes, statsRes] = await Promise.all([
-        quotes.adminList({ status: filterStatus || undefined, service_type: filterService || undefined, search: search || undefined }),
+        quotes.adminList({ status: filterStatus || undefined, service_type: filterService || undefined, search: debouncedSearch.trim() || undefined }),
         quotes.adminStats(),
       ]);
       setQuoteList(listRes.quotes || []);
       setStats(statsRes.stats || null);
-    } catch (err) {
-      console.error('Failed to fetch quotes:', err);
+      setError('');
+    } catch (err: any) {
+      setError(err.message || 'Failed to load quote requests.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [filterStatus, filterService, search]);
+  }, [filterStatus, filterService, debouncedSearch]);
 
   useEffect(() => {
     fetchQuotes();
@@ -94,8 +100,8 @@ const QuotesPage: React.FC = () => {
         const res = await quotes.adminGet(id);
         setSelectedQuote(res.quote);
       }
-    } catch (err) {
-      console.error('Failed to update status:', err);
+    } catch (err: any) {
+      setError(err.message || 'Failed to update the status.');
     } finally {
       setSaving(false);
     }
@@ -109,8 +115,8 @@ const QuotesPage: React.FC = () => {
       await fetchQuotes();
       const res = await quotes.adminGet(selectedQuote.id);
       setSelectedQuote(res.quote);
-    } catch (err) {
-      console.error('Failed to save notes:', err);
+    } catch (err: any) {
+      setError(err.message || 'Failed to save the notes.');
     } finally {
       setSaving(false);
     }
@@ -123,8 +129,8 @@ const QuotesPage: React.FC = () => {
       setShowDetail(false);
       setSelectedQuote(null);
       await fetchQuotes();
-    } catch (err) {
-      console.error('Failed to delete quote:', err);
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete the quote.');
     }
   };
 
@@ -142,6 +148,7 @@ const QuotesPage: React.FC = () => {
   const timeAgo = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
     if (mins < 60) return `${mins}m ago`;
     const hrs = Math.floor(mins / 60);
     if (hrs < 24) return `${hrs}h ago`;
@@ -161,9 +168,16 @@ const QuotesPage: React.FC = () => {
           onClick={fetchQuotes}
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
         >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
         </button>
       </div>
+
+      {error && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-lg">
+          {error}
+          <button onClick={() => setError('')} aria-label="Dismiss"><X className="w-4 h-4" /></button>
+        </div>
+      )}
 
       {/* Stats Cards */}
       {stats && (

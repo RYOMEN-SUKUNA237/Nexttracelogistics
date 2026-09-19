@@ -69,6 +69,22 @@ async function tryRefreshToken(): Promise<boolean> {
   }
 }
 
+// ─── SESSION EXPIRY ──────────────────────────────────────────────────────
+// Fired at most once per signed-in session: only for requests that carried a
+// token, never for the login request itself, and re-armed on the next login.
+export const SESSION_EXPIRED_EVENT = 'ntl:session-expired';
+let sessionExpiredSent = false;
+
+function notifySessionExpired() {
+  if (sessionExpiredSent || typeof window === 'undefined') return;
+  sessionExpiredSent = true;
+  window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT));
+}
+
+export function resetSessionExpiry() {
+  sessionExpiredSent = false;
+}
+
 // ─── BASE FETCH ──────────────────────────────────────────────────────────
 async function apiFetch(endpoint: string, options: RequestInit = {}, _retried = false): Promise<any> {
   const token = getToken();
@@ -100,14 +116,15 @@ async function apiFetch(endpoint: string, options: RequestInit = {}, _retried = 
   if (newRefreshToken) setRefreshToken(newRefreshToken);
 
   // ── Handle 401 — try to silently refresh once, then retry
-  if (res.status === 401 && !_retried) {
-    const refreshed = await tryRefreshToken();
+  if (res.status === 401 && token && !endpoint.startsWith('/auth/login')) {
+    const refreshed = !_retried && await tryRefreshToken();
     if (refreshed) {
       // Retry the original request with the new token
       return apiFetch(endpoint, options, true);
     }
-    // Refresh failed — clear tokens and throw
+    // Refresh failed — clear tokens and tell the dashboard (once) to show the login screen
     removeToken();
+    notifySessionExpired();
     throw new Error('Session expired. Please log in again.');
   }
 
@@ -137,6 +154,7 @@ export const auth = {
     // Store both tokens on login
     if (data.token) setToken(data.token);
     if (data.refresh_token) setRefreshToken(data.refresh_token);
+    resetSessionExpiry();
     return data;
   },
 
@@ -153,6 +171,8 @@ export const auth = {
 
   refresh: (refresh_token: string) =>
     apiFetch('/auth/refresh', { method: 'POST', body: JSON.stringify({ refresh_token }) }),
+
+  logoutAll: () => apiFetch('/auth/logout-all', { method: 'POST' }),
 };
 
 // ─── COURIERS ──────────────────────────────────────────────────────────
@@ -234,6 +254,10 @@ export const shipments = {
     estimated_delivery?: string; special_instructions?: string;
     origin_lat?: number; origin_lng?: number; dest_lat?: number; dest_lng?: number;
     route_data?: any; transport_modes?: string[]; route_distance?: number; route_duration?: number; route_summary?: string;
+    route_mode?: string; eta_overridden?: boolean;
+    multi_modal_segments?: any; multi_modal_stops?: any;
+    scheduled_transit_stops?: Array<{ name: string; lat: number; lng: number }>;
+    pet_details?: Record<string, any>;
   }) => apiFetch('/shipments', { method: 'POST', body: JSON.stringify(data) }),
 
   update: (id: string, data: Record<string, any>) =>
@@ -241,7 +265,7 @@ export const shipments = {
 
   delete: (id: string) => apiFetch(`/shipments/${id}`, { method: 'DELETE' }),
 
-  updateStatus: (id: string, data: { status: string; location?: string; lat?: number; lng?: number; notes?: string }) =>
+  updateStatus: (id: string, data: { status: string; location?: string; lat?: number; lng?: number; notes?: string; pause_category?: string; pause_reason?: string }) =>
     apiFetch(`/shipments/${id}/status`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   assignCourier: (id: string, courier_id: string) =>
@@ -259,8 +283,22 @@ export const shipments = {
   deleteTransitStop: (id: string, index: number) =>
     apiFetch(`/shipments/${id}/transit-stop/${index}`, { method: 'DELETE' }),
 
-  transitLand: (id: string, data: { airport_name: string; reason?: string }) =>
+  /** Hold the cargo at the airport it is currently at (the server works out which). */
+  transitLand: (id: string, data: { reason?: string } = {}) =>
     apiFetch(`/shipments/${id}/transit-land`, { method: 'POST', body: JSON.stringify(data) }),
+
+  /** Send an airborne aircraft to a different airport next. */
+  divert: (id: string, data: { airport_name: string; lat: number; lng: number; reason?: string }) =>
+    apiFetch(`/shipments/${id}/divert`, { method: 'POST', body: JSON.stringify(data) }),
+
+  /** Stop a truck along its route — by place (lat/lng) or by time (in_minutes). */
+  addRoadStop: (id: string, data: {
+    lat?: number; lng?: number; in_minutes?: number;
+    duration_minutes: number; kind?: string; name?: string; note?: string;
+  }) => apiFetch(`/shipments/${id}/road-stop`, { method: 'POST', body: JSON.stringify(data) }),
+
+  removeRoadStop: (id: string, stopId: string) =>
+    apiFetch(`/shipments/${id}/road-stop/${encodeURIComponent(stopId)}`, { method: 'DELETE' }),
 
   // Public endpoint — no auth required
   track: (trackingId: string) =>
@@ -341,7 +379,7 @@ export const reviews = {
 
   adminList: (params?: { status?: string; search?: string }) => {
     const query = new URLSearchParams();
-    if (params?.status) query.set('status', params.search);
+    if (params?.status) query.set('status', params.status);
     if (params?.search) query.set('search', params.search);
     return apiFetch(`/reviews/admin?${query.toString()}`);
   },
@@ -381,6 +419,22 @@ export const emails = {
   },
 };
 
+// ─── ROUTING (admin transport planner) ────────────────────────────────
+export interface HubResult { name: string; iata?: string; lat: number; lng: number; type?: string; distanceKm: number; score?: number }
+
+export const routing = {
+  plans: (data: {
+    origin: { name: string; lat: number; lng: number };
+    destination: { name: string; lat: number; lng: number };
+    vias?: Array<{ name: string; lat: number; lng: number }>;
+    cargoType?: string;
+    mapboxToken?: string;
+  }) => apiFetch('/routing/plans', { method: 'POST', body: JSON.stringify(data) }),
+
+  nearestAirports: (lat: number, lng: number, limit = 8): Promise<{ results: HubResult[] }> =>
+    apiFetch(`/routing/nearest-hub?type=airport&lat=${lat}&lng=${lng}&limit=${limit}`),
+};
+
 // ─── HEALTH ────────────────────────────────────────────────────────────
 export const health = () => fetch(`${API_BASE}/health`).then(r => r.json());
 
@@ -403,5 +457,9 @@ export const settings = {
     company_tax_id?: string;
     company_website?: string;
   }) => apiFetch('/settings/company', { method: 'PUT', body: JSON.stringify(data) }),
+
+  getNotifications: (): Promise<{ prefs: Record<string, boolean> }> => apiFetch('/settings/notifications'),
+  updateNotifications: (prefs: Record<string, boolean>): Promise<{ prefs: Record<string, boolean> }> =>
+    apiFetch('/settings/notifications', { method: 'PUT', body: JSON.stringify(prefs) }),
 };
 

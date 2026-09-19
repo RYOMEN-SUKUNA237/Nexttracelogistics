@@ -1,6 +1,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const { authMiddleware } = require('../middleware/auth');
+const { notify } = require('../utils/notify');
 const { generateCourierId } = require('../utils/generators');
 
 const router = express.Router();
@@ -107,12 +108,7 @@ router.post('/', authMiddleware, async (req, res) => {
     const courier = inserted[0];
 
     // Create notification
-    await pool.query('INSERT INTO notifications (title, message, type, link) VALUES ($1, $2, $3, $4)', [
-      'New Courier Registered',
-      `${name} (${courierId}) has been registered as a new courier.`,
-      'success',
-      `/couriers/${courierId}`
-    ]);
+    await notify('courier_registered', 'New Courier Registered', `${name} (${courierId}) has been registered as a new courier.`, 'success', `/couriers/${courierId}`);
 
     res.status(201).json({ courier });
   } catch (err) {
@@ -128,25 +124,46 @@ router.put('/:id', authMiddleware, async (req, res) => {
     const courier = rows[0];
     if (!courier) return res.status(404).json({ error: 'Courier not found.' });
 
-    const { name, email, phone, vehicle_type, license_plate, zone, status, emergency_contact, notes } = req.body;
+    const required = ['name', 'email', 'phone'];
+    const optional = ['license_plate', 'zone', 'emergency_contact', 'notes'];
+    const updates = {};
+    for (const key of required) {
+      if (req.body[key] === undefined) continue;
+      const v = String(req.body[key]).trim();
+      if (!v) return res.status(400).json({ error: `${key} cannot be empty.` });
+      updates[key] = v;
+    }
+    for (const key of optional) {
+      if (req.body[key] === undefined) continue;
+      updates[key] = req.body[key] === null ? null : String(req.body[key]).trim() || null;
+    }
+    if (req.body.vehicle_type !== undefined) {
+      if (!['motorcycle', 'bicycle', 'car', 'van', 'truck'].includes(req.body.vehicle_type)) {
+        return res.status(400).json({ error: 'Invalid vehicle type.' });
+      }
+      updates.vehicle_type = req.body.vehicle_type;
+    }
+    if (req.body.status !== undefined) {
+      if (!['active', 'inactive', 'on-delivery', 'on-break'].includes(req.body.status)) {
+        return res.status(400).json({ error: 'Invalid status.' });
+      }
+      updates.status = req.body.status;
+    }
+    if (updates.email && updates.email.toLowerCase() !== String(courier.email).toLowerCase()) {
+      const { rows: dup } = await pool.query('SELECT id FROM couriers WHERE LOWER(email) = LOWER($1) AND id <> $2', [updates.email, courier.id]);
+      if (dup.length) return res.status(409).json({ error: 'Another courier already uses this email.' });
+    }
+    if (updates.name && updates.name !== courier.name) {
+      updates.avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(updates.name)}&background=0a192f&color=fff&size=100`;
+    }
 
-    await pool.query(`
-      UPDATE couriers SET
-        name = COALESCE($1, name),
-        email = COALESCE($2, email),
-        phone = COALESCE($3, phone),
-        vehicle_type = COALESCE($4, vehicle_type),
-        license_plate = COALESCE($5, license_plate),
-        zone = COALESCE($6, zone),
-        status = COALESCE($7, status),
-        emergency_contact = COALESCE($8, emergency_contact),
-        notes = COALESCE($9, notes)
-      WHERE id = $10
-    `, [
-      name || null, email || null, phone || null, vehicle_type || null,
-      license_plate || null, zone || null, status || null,
-      emergency_contact || null, notes || null, courier.id
-    ]);
+    const keys = Object.keys(updates);
+    if (keys.length > 0) {
+      await pool.query(
+        `UPDATE couriers SET ${keys.map((k, i) => `${k} = $${i + 1}`).join(', ')} WHERE id = $${keys.length + 1}`,
+        [...keys.map((k) => updates[k]), courier.id]
+      );
+    }
 
     const { rows: updated } = await pool.query('SELECT * FROM couriers WHERE id = $1', [courier.id]);
     res.json({ courier: updated[0] });

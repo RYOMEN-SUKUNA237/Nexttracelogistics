@@ -33,3 +33,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local test environment: embedded PostgreSQL, demo seed data, UI screenshots.
+# Never deployed — the live site has its own database and data.
+local-dev/

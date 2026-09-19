@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -6,9 +6,10 @@ import {
   ArrowLeft, Phone, User, Star, ChevronDown, ChevronUp, Box,
   Calendar, Weight, Shield, Navigation, Loader2, AlertCircle, Search, Mail, BellRing
 } from 'lucide-react';
-import mapboxgl from 'mapbox-gl';
-// mapbox-gl CSS loaded via index.html <link> to avoid PostCSS conflict
-import { MAPBOX_TOKEN, initMapbox, interpolateAlongRoute, formatDistance, formatDuration, getRouteWithFallback, computeTimeBasedProgress, computeTimeRemaining, ROUTE_STYLE } from '../utils/mapbox';
+import { MAPBOX_TOKEN, formatDistance, formatDuration } from '../utils/mapbox';
+import { liveState, formatHours } from '../utils/shipmentTimeline';
+import LiveShipmentMap from '../components/shipment/LiveShipmentMap';
+import JourneyTimeline from '../components/shipment/JourneyTimeline';
 
 const statusConfig: Record<string, { color: string; bg: string; icon: React.ReactNode; label: string }> = {
   'pending':          { color: 'text-gray-600',   bg: 'bg-gray-100',   icon: <Clock size={16} />,       label: 'Order Confirmed' },
@@ -29,30 +30,27 @@ const TrackingDashboard: React.FC = () => {
   const [error, setError] = useState('');
   const [searchInput, setSearchInput] = useState(trackingId || '');
   const [showHistory, setShowHistory] = useState(false);
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
-  const currentMarkerRef = useRef<mapboxgl.Marker | null>(null);
-  const routeCoordsRef = useRef<[number, number][] | null>(null);
-  const [liveProgress, setLiveProgress] = useState<number>(0);
-  const [liveEta, setLiveEta] = useState<string>('');
+  const [now, setNow] = useState(() => Date.now());
   const [subEmail, setSubEmail] = useState('');
   const [subName, setSubName] = useState('');
   const [subLoading, setSubLoading] = useState(false);
   const [subMessage, setSubMessage] = useState('');
 
-  const fetchTracking = async (id: string) => {
-    setLoading(true);
-    setError('');
-    setData(null);
+  const fetchTracking = async (id: string, quiet = false) => {
+    if (!quiet) {
+      setLoading(true);
+      setError('');
+      setData(null);
+    }
     try {
       const res = await fetch(`/api/shipments/${id}/track`);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Shipment not found.');
       setData(json);
     } catch (err: any) {
-      setError(err.message || 'Could not find shipment.');
+      if (!quiet) setError(err.message || 'Could not find shipment.');
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
   };
 
@@ -60,170 +58,19 @@ const TrackingDashboard: React.FC = () => {
     if (trackingId) fetchTracking(trackingId);
   }, [trackingId]);
 
-  // Live progress + ETA ticker — recomputes every 2 seconds
+  // Live clock for the vehicle position, and a periodic refresh for status updates.
   useEffect(() => {
-    if (!data?.shipment) return;
-    const tick = () => {
-      const s = data.shipment;
-      const progress = computeTimeBasedProgress(s);
-      setLiveProgress(progress);
-      setLiveEta(computeTimeRemaining(s));
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
-      // Animate marker position along route
-      if (currentMarkerRef.current && s.status !== 'delivered' && s.status !== 'returned') {
-        if (routeCoordsRef.current && routeCoordsRef.current.length > 2) {
-          const pos = interpolateAlongRoute(routeCoordsRef.current, progress);
-          currentMarkerRef.current.setLngLat(pos);
-        } else if (s.origin_lat && s.origin_lng && s.dest_lat && s.dest_lng) {
-          const p = progress / 100;
-          currentMarkerRef.current.setLngLat([
-            Number(s.origin_lng) + (Number(s.dest_lng) - Number(s.origin_lng)) * p,
-            Number(s.origin_lat) + (Number(s.dest_lat) - Number(s.origin_lat)) * p,
-          ]);
-        }
-      }
-    };
-    tick();
-    const interval = setInterval(tick, 2000);
-    return () => clearInterval(interval);
-  }, [data]);
-
-  // Init map when data loads
   useEffect(() => {
-    if (!data?.shipment || !mapContainer.current || !MAPBOX_TOKEN) return;
-    initMapbox();
-
-    const s = data.shipment;
-    const hasCoords = s.origin_lat && s.origin_lng && s.dest_lat && s.dest_lng;
-    if (!hasCoords) return;
-
-    if (map.current) { map.current.remove(); map.current = null; }
-
-    const m = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/standard',
-      center: [(Number(s.origin_lng) + Number(s.dest_lng)) / 2, (Number(s.origin_lat) + Number(s.dest_lat)) / 2],
-      zoom: 15.5,
-      pitch: 60,
-      bearing: -20,
-      antialias: true
-    });
-
-    m.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
-
-    const addRouteAndMarkers = (routeGeometry: any | null) => {
-      // Route line — draw from fetched or stored route, or fallback to straight line
-      const geometry = routeGeometry || {
-        type: 'LineString',
-        coordinates: [[Number(s.origin_lng), Number(s.origin_lat)], [Number(s.dest_lng), Number(s.dest_lat)]],
-      };
-
-      m.addSource('route', {
-        type: 'geojson',
-        data: { type: 'Feature', properties: {}, geometry },
-      });
-      m.addLayer({
-        id: 'route-line-glow',
-        type: 'line',
-        source: 'route',
-        layout: { 'line-join': ROUTE_STYLE.lineJoin, 'line-cap': ROUTE_STYLE.lineCap },
-        paint: { 'line-color': ROUTE_STYLE.glowColor, 'line-width': ROUTE_STYLE.glowWidth, 'line-opacity': ROUTE_STYLE.glowOpacity },
-      });
-      m.addLayer({
-        id: 'route-line',
-        type: 'line',
-        source: 'route',
-        layout: { 'line-join': ROUTE_STYLE.lineJoin, 'line-cap': ROUTE_STYLE.lineCap },
-        paint: { 'line-color': ROUTE_STYLE.color, 'line-width': ROUTE_STYLE.width, 'line-opacity': ROUTE_STYLE.opacity },
-      });
-
-      // Origin marker
-      const originEl = document.createElement('div');
-      originEl.innerHTML = `<div style="width:14px;height:14px;border-radius:50%;background:#10b981;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.2);"></div>`;
-      new mapboxgl.Marker({ element: originEl })
-        .setLngLat([Number(s.origin_lng), Number(s.origin_lat)])
-        .setPopup(new mapboxgl.Popup({ offset: 15 }).setHTML(`<div style="padding:6px;font-size:12px;"><strong>Origin</strong><br/>${s.origin}</div>`))
-        .addTo(m);
-
-      // Destination marker
-      const destEl = document.createElement('div');
-      destEl.innerHTML = `<div style="width:14px;height:14px;border-radius:50%;background:#ef4444;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.2);"></div>`;
-      new mapboxgl.Marker({ element: destEl })
-        .setLngLat([Number(s.dest_lng), Number(s.dest_lat)])
-        .setPopup(new mapboxgl.Popup({ offset: 15 }).setHTML(`<div style="padding:6px;font-size:12px;"><strong>Destination</strong><br/>${s.destination}</div>`))
-        .addTo(m);
-
-      // Current position marker — use time-based progress
-      const coords = geometry?.coordinates;
-      routeCoordsRef.current = coords?.length > 2 ? coords : null;
-      const initialProgress = computeTimeBasedProgress(s);
-      let currentPos: [number, number];
-      if (coords?.length > 2) {
-        currentPos = interpolateAlongRoute(coords, initialProgress);
-      } else {
-        const p = initialProgress / 100;
-        currentPos = [
-          Number(s.origin_lng) + (Number(s.dest_lng) - Number(s.origin_lng)) * p,
-          Number(s.origin_lat) + (Number(s.dest_lat) - Number(s.origin_lat)) * p,
-        ];
-      }
-
-      if (s.status !== 'delivered' && s.status !== 'returned') {
-        const curEl = document.createElement('div');
-        const isTransitLanded = s.is_paused && s.pause_category === 'Transit Stop';
-        if (isTransitLanded) {
-          curEl.innerHTML = `
-            <div style="position:relative; display:flex; flex-direction:column; align-items:center;">
-              <div style="width:24px;height:24px;border-radius:50%;background:#f59e0b;opacity:.4;position:absolute;top:-4px;left:-4px;animation:ping 1.5s infinite"></div>
-              <div style="width:16px;height:16px;border-radius:50%;background:#f59e0b;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,.3);position:relative;z-index:2"></div>
-              <div style="position:absolute; bottom:22px; white-space:nowrap; background:rgba(15, 23, 42, 0.95); border:1px solid rgba(245, 158, 11, 0.6); color:#fbbf24; font-size:10px; font-weight:bold; padding:4px 8px; border-radius:6px; box-shadow:0 4px 12px rgba(0,0,0,0.4); z-index:10; pointer-events:none; display:flex; align-items:center; gap:4px;">
-                <span>✈️ Landed: ${s.pause_reason || 'Transit Stop'}</span>
-              </div>
-            </div>
-          `;
-        } else {
-          curEl.innerHTML = `
-            <div style="position:relative;">
-              <div style="width:28px;height:28px;border-radius:50%;background:#3b82f6;opacity:0.2;position:absolute;top:-6px;left:-6px;animation:ping 2s ease-in-out infinite;"></div>
-              <div style="width:16px;height:16px;border-radius:50%;background:#3b82f6;border:3px solid white;box-shadow:0 2px 12px rgba(59,130,246,0.4);position:relative;z-index:1;"></div>
-            </div>
-          `;
-        }
-        const marker = new mapboxgl.Marker({ element: curEl })
-          .setLngLat(currentPos)
-          .addTo(m);
-        currentMarkerRef.current = marker;
-      }
-
-      // Fit bounds
-      const bounds = new mapboxgl.LngLatBounds();
-      bounds.extend([Number(s.origin_lng), Number(s.origin_lat)]);
-      bounds.extend([Number(s.dest_lng), Number(s.dest_lat)]);
-      m.fitBounds(bounds, { padding: 60, duration: 1000 });
-    };
-
-    m.on('load', async () => {
-      // Use stored route_data if available, otherwise fetch it live
-      if (s.route_data?.coordinates?.length > 0) {
-        addRouteAndMarkers(s.route_data);
-      } else {
-        // Try to fetch route dynamically (road route with great circle arc fallback)
-        try {
-          const result = await getRouteWithFallback(
-            [Number(s.origin_lng), Number(s.origin_lat)],
-            [Number(s.dest_lng), Number(s.dest_lat)]
-          );
-          addRouteAndMarkers(result?.geometry || null);
-        } catch {
-          addRouteAndMarkers(null);
-        }
-      }
-    });
-
-    map.current = m;
-
-    return () => { m.remove(); map.current = null; };
-  }, [data]);
+    if (!trackingId) return;
+    const t = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchTracking(trackingId, true);
+    }, 60000);
+    return () => clearInterval(t);
+  }, [trackingId]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -236,15 +83,52 @@ const TrackingDashboard: React.FC = () => {
   const shipment = data?.shipment;
   const history = data?.history || [];
   const courier = data?.courier;
-  
-  let currentStatusIdx = shipment ? statusOrder.indexOf(shipment.status) : -1;
-  if (shipment && shipment.status === 'paused') {
-    const prog = liveProgress;
-    if (prog >= 100) currentStatusIdx = 4; // delivered
-    else if (prog >= 85) currentStatusIdx = 3; // out-for-delivery
-    else if (prog >= 15) currentStatusIdx = 2; // in-transit
-    else if (prog > 0) currentStatusIdx = 1; // picked-up
-    else currentStatusIdx = 0; // pending
+
+  const live = shipment ? liveState(shipment, now) : null;
+  const finished = shipment?.status === 'delivered' || shipment?.status === 'returned';
+  const started = !!shipment?.departed_at && shipment?.status !== 'pending';
+  const liveProgress = !shipment ? 0 : finished ? 100 : live ? live.progress : Number(shipment.computed_progress ?? shipment.progress ?? 0);
+  const remainingHours = live ? Math.max(0, live.tl.totalHours - live.elapsed) : 0;
+  const pet = shipment?.pet_details && Object.keys(shipment.pet_details).length ? shipment.pet_details : null;
+  const heldAtAirport = !!shipment?.is_paused && shipment?.pause_category === 'Transit Stop';
+
+  // While on hold, the step tracker shows the stage the shipment was in.
+  const stepStatus = shipment?.status === 'paused' ? (shipment.status_before_pause || (started ? 'in-transit' : 'pending')) : shipment?.status;
+  const currentStatusIdx = shipment ? statusOrder.indexOf(stepStatus) : -1;
+
+  let etaText = '';
+  if (shipment) {
+    if (finished) etaText = shipment.status === 'delivered' ? 'Delivered' : 'Returned';
+    else if (!started) etaText = 'Awaiting pickup';
+    else if (shipment.is_paused) etaText = `On hold · ${formatHours(remainingHours)} to go after release`;
+    else etaText = remainingHours > 0 ? `${formatHours(remainingHours)} remaining` : 'Arriving now';
+  }
+
+  const arrivalText = (() => {
+    if (!shipment) return '';
+    if (shipment.status === 'delivered' && shipment.actual_delivery) {
+      return new Date(`${String(shipment.actual_delivery).slice(0, 10)}T12:00:00`).toLocaleDateString(undefined, { dateStyle: 'medium' });
+    }
+    let ms = new Date(String(shipment.estimated_delivery)).getTime();
+    if (isNaN(ms)) return String(shipment.estimated_delivery || '—');
+    if (shipment.is_paused && shipment.paused_at) ms += Math.max(0, now - new Date(shipment.paused_at).getTime());
+    return new Date(ms).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  })();
+
+  // What is happening right now, in words.
+  let stage: { icon: string; title: string; detail: string; tone: 'blue' | 'sky' | 'amber' | 'green' | 'gray' } | null = null;
+  if (shipment && live) {
+    const st = live.state;
+    if (finished) stage = { icon: shipment.status === 'delivered' ? '✅' : '↩️', title: shipment.status === 'delivered' ? 'Delivered' : 'Returned to sender', detail: shipment.destination, tone: 'green' };
+    else if (!started) stage = { icon: '📋', title: 'Order confirmed — awaiting pickup', detail: `Planned journey time: ${formatHours(live.tl.totalHours)}`, tone: 'gray' };
+    else if (heldAtAirport) stage = { icon: '✈️', title: `Cargo held at ${st.name || 'the airport'}`, detail: shipment.pause_reason || 'Airport processing is under way. Your shipment will continue shortly.', tone: 'sky' };
+    else if (shipment.is_paused) stage = { icon: '⏸', title: `On hold${shipment.pause_category ? ` — ${shipment.pause_category}` : ''}`, detail: shipment.pause_reason || 'Our team is working to release your shipment as soon as possible.', tone: 'amber' };
+    else if (st.kind === 'move') {
+      const verb = st.mode === 'air' ? 'In flight' : st.mode === 'sea' ? 'At sea' : 'On the road';
+      stage = { icon: st.icon, title: `${verb}: ${st.label}`, detail: `${st.segment?.from.name} → ${st.segment?.to.name} · arrives there in ${formatHours(st.remainingInPhaseHours)}`, tone: 'blue' };
+    } else {
+      stage = { icon: st.icon, title: st.label, detail: `${st.name} · next leg in ${formatHours(st.remainingInPhaseHours)}`, tone: st.role === 'transit' ? 'sky' : 'blue' };
+    }
   }
 
   return (
@@ -315,28 +199,21 @@ const TrackingDashboard: React.FC = () => {
                     <p className="text-blue-300 text-xs font-medium uppercase tracking-wider mb-1">Tracking Number</p>
                     <h1 className="text-2xl sm:text-3xl font-bold font-mono">{shipment.tracking_id}</h1>
                   </div>
-                  {(() => {
-                    const isTransitLanded = shipment.is_paused && shipment.pause_category === 'Transit Stop';
-                    if (isTransitLanded) {
-                      return (
-                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-sky-500 text-white shadow-lg shadow-sky-500/20 border border-sky-400/30 animate-pulse">
-                          <span>✈️ Landed (Transit Stop)</span>
-                        </div>
-                      );
-                    }
-                    return (
-                      <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold ${
-                        statusConfig[shipment.status]?.bg || 'bg-gray-100'
-                      } ${statusConfig[shipment.status]?.color || 'text-gray-600'}`}>
-                        {statusConfig[shipment.status]?.icon}
-                        {statusConfig[shipment.status]?.label || shipment.status}
-                        {shipment.is_paused ? ' (On Hold)' : ''}
-                      </div>
-                    );
-                  })()}
+                  {heldAtAirport ? (
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-sky-500 text-white shadow-lg shadow-sky-500/20">
+                      ✈️ Held at transit airport
+                    </div>
+                  ) : (
+                    <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold ${
+                      statusConfig[shipment.status]?.bg || 'bg-gray-100'
+                    } ${statusConfig[shipment.status]?.color || 'text-gray-600'}`}>
+                      {statusConfig[shipment.status]?.icon}
+                      {statusConfig[shipment.status]?.label || shipment.status}
+                    </div>
+                  )}
                 </div>
               </div>
- 
+
               {/* Progress Steps */}
               <div className="px-6 sm:px-8 py-6">
                 <div className="flex items-center justify-between mb-2">
@@ -373,15 +250,15 @@ const TrackingDashboard: React.FC = () => {
                   <div className="flex justify-between text-xs text-gray-500 mb-1">
                     <span>Progress</span>
                     <div className="flex items-center gap-3">
-                      {liveEta && <span className="text-blue-600 font-medium">{liveEta}</span>}
+                      {etaText && <span className="text-blue-600 font-medium">{etaText}</span>}
                       <span className="font-semibold text-[#0a192f]">{Math.round(liveProgress)}%</span>
                     </div>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2.5">
                     <motion.div
-                      className={`h-2.5 rounded-full ${shipment.is_paused ? (shipment.pause_category === 'Transit Stop' ? 'bg-sky-500' : 'bg-amber-500') : 'bg-blue-600'}`}
+                      className={`h-2.5 rounded-full ${shipment.is_paused ? (heldAtAirport ? 'bg-sky-500' : 'bg-amber-500') : finished ? 'bg-green-500' : 'bg-blue-600'}`}
                       initial={{ width: 0 }}
-                      animate={{ width: `${Math.round(liveProgress)}%` }}
+                      animate={{ width: `${Math.min(100, liveProgress)}%` }}
                       transition={{ duration: 1.2, ease: 'easeOut' }}
                     />
                   </div>
@@ -389,36 +266,39 @@ const TrackingDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Transit Stop Layover Banner */}
-            {shipment.is_paused && shipment.pause_category === 'Transit Stop' && (
-              <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4 shadow-sm shadow-sky-500/5 animate-fade-in">
-                <div className="w-10 h-10 bg-sky-500 text-white rounded-xl flex items-center justify-center flex-shrink-0 animate-bounce text-lg">
-                  ✈️
-                </div>
-                <div className="space-y-1">
-                  <h4 className="text-sm font-bold text-sky-900">Scheduled Transit Layover</h4>
-                  <p className="text-xs text-sky-700 leading-relaxed">
-                    The aircraft carrying your cargo has successfully arrived at intermediate transit stop: <strong className="font-semibold">{shipment.pause_reason || 'Transit Airport'}</strong>. Processing and refueling are underway. The flight is scheduled to resume shortly.
-                  </p>
+            {/* What is happening now */}
+            {stage && (
+              <div className={`rounded-xl border p-4 sm:p-5 flex items-start sm:items-center gap-4 shadow-sm ${
+                stage.tone === 'sky' ? 'bg-sky-50 border-sky-200'
+                  : stage.tone === 'amber' ? 'bg-amber-50 border-amber-200'
+                  : stage.tone === 'green' ? 'bg-green-50 border-green-200'
+                  : stage.tone === 'gray' ? 'bg-gray-50 border-gray-200'
+                  : 'bg-blue-50 border-blue-200'
+              }`}>
+                <div className="w-11 h-11 rounded-xl bg-white shadow-sm flex items-center justify-center flex-shrink-0 text-xl">{stage.icon}</div>
+                <div className="min-w-0">
+                  <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">Current stage</p>
+                  <h4 className="text-sm sm:text-base font-bold text-[#0a192f]">{stage.title}</h4>
+                  <p className="text-xs text-gray-600 leading-relaxed">{stage.detail}</p>
                 </div>
               </div>
             )}
- 
+
             {/* Main Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Map */}
               <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                  <h3 className="font-bold text-[#0a192f] text-sm">Route Map</h3>
+                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
+                  <h3 className="font-bold text-[#0a192f] text-sm">Live Route Map</h3>
                   {shipment.route_distance && (
                     <div className="flex gap-3 text-xs text-gray-500">
-                      <span className="flex items-center gap-1"><MapPin size={12} /> {formatDistance(shipment.route_distance)}</span>
-                      <span className="flex items-center gap-1"><Clock size={12} /> {formatDuration(shipment.route_duration || 0)}</span>
+                      <span className="flex items-center gap-1"><MapPin size={12} /> {formatDistance(Number(shipment.route_distance))}</span>
+                      <span className="flex items-center gap-1"><Clock size={12} /> {live ? formatHours(live.tl.totalHours) : formatDuration(Number(shipment.route_duration) || 0)}</span>
                     </div>
                   )}
                 </div>
-                {MAPBOX_TOKEN && shipment.origin_lat ? (
-                  <div ref={mapContainer} style={{ height: '380px' }} />
+                {MAPBOX_TOKEN && live ? (
+                  <LiveShipmentMap shipment={shipment} nowMs={now} />
                 ) : (
                   <div className="h-[380px] bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center">
                     <div className="text-center text-gray-400">
@@ -479,25 +359,8 @@ const TrackingDashboard: React.FC = () => {
                           <Clock size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
                           <div>
                             <p className="text-[10px] text-gray-400 uppercase">Est. Arrival</p>
-                            <p className="font-medium text-[#0a192f]">
-                              {(() => {
-                                let est = shipment.estimated_delivery;
-                                if (shipment.is_paused && shipment.paused_at) {
-                                  const elapsedPause = Date.now() - new Date(shipment.paused_at).getTime();
-                                  if (elapsedPause > 0) {
-                                    const baseTime = new Date(String(est)).getTime();
-                                    if (!isNaN(baseTime)) {
-                                      est = new Date(baseTime + elapsedPause).toISOString();
-                                    }
-                                  }
-                                }
-                                const d = new Date(String(est));
-                                return isNaN(d.getTime())
-                                  ? est
-                                  : d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-                              })()}
-                            </p>
-                            {liveEta && <p className="text-[10px] text-blue-600 font-medium mt-0.5">{liveEta}</p>}
+                            <p className="font-medium text-[#0a192f]">{arrivalText}</p>
+                            {etaText && <p className="text-[10px] text-blue-600 font-medium mt-0.5">{etaText}</p>}
                           </div>
                         </div>
                       )}
@@ -505,36 +368,52 @@ const TrackingDashboard: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Transport Modes */}
-                {shipment.transport_modes && Array.isArray(shipment.transport_modes) && shipment.transport_modes.length > 0 && (
-                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div className="px-5 py-3 border-b border-gray-100">
-                      <h3 className="font-bold text-[#0a192f] text-sm">Transport Chain</h3>
+                {/* Live animal */}
+                {pet && (
+                  <div className="bg-white rounded-xl border border-amber-200 shadow-sm overflow-hidden">
+                    <div className="px-5 py-3 border-b border-amber-100 bg-amber-50/60">
+                      <h3 className="font-bold text-[#0a192f] text-sm">🐾 Animal on board</h3>
                     </div>
-                    <div className="p-5">
-                      <div className="space-y-3">
-                        {shipment.transport_modes.map((mode: string, i: number) => (
-                          <motion.div
-                            key={i}
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: i * 0.1 }}
-                            className="flex items-center gap-3"
-                          >
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${
-                              i === 0 ? 'bg-blue-600' : i === shipment.transport_modes.length - 1 ? 'bg-green-600' : 'bg-gray-500'
-                            }`}>
-                              {i + 1}
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-[#0a192f]">{mode}</p>
-                            </div>
-                            {i < shipment.transport_modes.length - 1 && (
-                              <div className="w-px h-4 bg-gray-200 ml-4 absolute" />
-                            )}
-                          </motion.div>
+                    <div className="p-5 space-y-3">
+                      <p className="text-base font-semibold text-[#0a192f]">
+                        {pet.species}{pet.breed ? ` · ${pet.breed}` : ''}
+                      </p>
+                      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                        {[
+                          ['Age', pet.age],
+                          ['Gender', pet.gender],
+                          ['Colour', pet.color],
+                          ['Weight', pet.weight ? `${pet.weight} kg` : ''],
+                          ['Vaccinations', pet.vaccinationStatus ? String(pet.vaccinationStatus).replace(/-/g, ' ') : ''],
+                          ['Crate', pet.crateType ? String(pet.crateType).replace(/-/g, ' ') : ''],
+                          ['Temperature', pet.tempMin || pet.tempMax ? `${pet.tempMin || '?'}–${pet.tempMax || '?'} °C` : ''],
+                        ].filter(([, v]) => v).map(([k, v]) => (
+                          <div key={k as string}>
+                            <dt className="text-[10px] text-gray-400 uppercase">{k}</dt>
+                            <dd className="font-medium text-[#0a192f] capitalize">{v}</dd>
+                          </div>
                         ))}
-                      </div>
+                      </dl>
+                      {pet.feedingSchedule && (
+                        <p className="text-xs text-gray-600"><span className="font-semibold text-gray-700">Feeding:</span> {pet.feedingSchedule}</p>
+                      )}
+                      {pet.specialCare && (
+                        <p className="text-xs text-gray-600"><span className="font-semibold text-gray-700">Special care:</span> {pet.specialCare}</p>
+                      )}
+                      <p className="text-[10px] text-gray-400">Our handlers check on the animal at every hub. Care stops appear as holds on this page.</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Journey stages */}
+                {live && (
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+                      <h3 className="font-bold text-[#0a192f] text-sm">Journey</h3>
+                      {shipment.route_summary && <span className="text-[10px] text-gray-500">{shipment.route_summary}</span>}
+                    </div>
+                    <div className="p-5 max-h-[420px] overflow-y-auto">
+                      <JourneyTimeline live={live} paused={!!shipment.is_paused} started={started && !finished ? true : finished} nowMs={now} />
                     </div>
                   </div>
                 )}
@@ -592,6 +471,7 @@ const TrackingDashboard: React.FC = () => {
                     <div className="px-6 pb-6 space-y-0">
                       {history.map((entry: any, i: number) => {
                         const cfg = statusConfig[entry.status] || statusConfig['pending'];
+                        const when = new Date(entry.created_at);
                         return (
                           <motion.div
                             key={i}
@@ -607,11 +487,11 @@ const TrackingDashboard: React.FC = () => {
                               {i < history.length - 1 && <div className="w-0.5 flex-1 bg-gray-200 min-h-[20px]" />}
                             </div>
                             <div className="pb-6 flex-1">
-                              <p className="text-sm font-semibold text-[#0a192f] capitalize">{entry.status.replace('-', ' ')}</p>
+                              <p className="text-sm font-semibold text-[#0a192f]">{cfg.label}</p>
                               {entry.location && <p className="text-xs text-gray-500 mt-0.5">{entry.location}</p>}
-                              {entry.notes && <p className="text-xs text-gray-400 mt-0.5">{entry.notes}</p>}
+                              {entry.notes && <p className="text-xs text-gray-600 mt-0.5">{entry.notes}</p>}
                               <p className="text-[10px] text-gray-400 mt-1 font-mono">
-                                {entry.created_at?.replace('T', ' ').slice(0, 19)}
+                                {isNaN(when.getTime()) ? entry.created_at : when.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
                               </p>
                             </div>
                           </motion.div>
@@ -716,11 +596,6 @@ const TrackingDashboard: React.FC = () => {
         <p className="text-xs">&copy; 2026 Next Trace Logistics. All rights reserved.</p>
       </footer>
 
-      <style>{`
-        @keyframes ping {
-          75%, 100% { transform: scale(2.5); opacity: 0; }
-        }
-      `}</style>
     </div>
   );
 };
