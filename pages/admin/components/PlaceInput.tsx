@@ -72,7 +72,9 @@ const PlaceInput: React.FC<Props> = ({ label, placeholder, value, text, onTextCh
     if (e.key === 'ArrowDown') { e.preventDefault(); setHighlight((h) => (h + 1) % suggestions.length); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlight((h) => (h - 1 + suggestions.length) % suggestions.length); }
     else if (e.key === 'Enter') { e.preventDefault(); choose(suggestions[highlight]); }
-    else if (e.key === 'Escape') setOpen(false);
+    // Escape closes the suggestions first; the dialog around us only closes
+    // on a second press (see useEscapeKey).
+    else if (e.key === 'Escape') { e.preventDefault(); setOpen(false); }
   };
 
   const pad = compact ? 'px-3 py-1.5 text-xs' : 'px-4 py-2.5 text-sm';

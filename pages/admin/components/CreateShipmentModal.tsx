@@ -5,6 +5,7 @@ import { Courier, PetDetails } from '../types';
 import { MAPBOX_TOKEN, geocodeAddress } from '../../../utils/mapbox';
 import { PlanSegment, PlanStop, formatHours, unwrapLine } from '../../../utils/shipmentTimeline';
 import PlaceInput, { Place } from './PlaceInput';
+import useEscapeKey from './useEscapeKey';
 import AirportPicker, { Airport } from './AirportPicker';
 import RoutePreviewMap from './RoutePreviewMap';
 
@@ -209,6 +210,8 @@ const CreateShipmentModal: React.FC<Props> = ({ open, couriers, onClose, onCreat
       setCreating(false);
     }
   };
+
+  useEscapeKey(close, open);
 
   if (!open) return null;
 

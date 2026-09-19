@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Pause, Play, X, Loader2 } from 'lucide-react';
 import * as api from '../../../services/api';
 import { Shipment } from '../types';
+import useEscapeKey from './useEscapeKey';
 
 const GENERAL_CATEGORIES = ['Customs Hold', 'Weather Delay', 'Port Congestion', 'Document Issue', 'Transit Change', 'Recipient Unavailable', 'Security Check', 'Vehicle Breakdown', 'Other'];
 const ANIMAL_CATEGORIES = ['Veterinary Check', 'Emergency Vet Visit', 'Feeding & Hydration', 'Walking / Exercise', 'Rest Period (Mandatory)', 'Temperature Out of Range', 'Quarantine Required', 'Anxiety / Stress Management', 'Grooming & Hygiene', 'Crate Maintenance', 'Weather — Unsafe for Animal', 'Vaccination Document Issue', 'Import/Export Permit Hold', 'Other'];
@@ -27,6 +28,8 @@ const PauseModal: React.FC<Props> = ({ shipment, onClose, onDone }) => {
     setReason('');
     setError('');
   }, [shipment?.id]);
+
+  useEscapeKey(onClose, !!shipment);
 
   if (!shipment) return null;
   const resuming = shipment.isPaused;

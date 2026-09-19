@@ -5,6 +5,7 @@ import { Courier, Shipment, ShipmentStatus, STATUS_LABELS, formatDateTime, petDe
 import { liveState, formatHours } from '../../../utils/shipmentTimeline';
 import JourneyTimeline from '../../../components/shipment/JourneyTimeline';
 import PositionEditor from './PositionEditor';
+import useEscapeKey from './useEscapeKey';
 import StopControls from './StopControls';
 import RoutePreviewMap from './RoutePreviewMap';
 
@@ -55,6 +56,8 @@ const ShipmentDetailModal: React.FC<Props> = ({ shipment, couriers, onClose, onC
   }, [shipment?.raw, tab]);
 
   const live = useMemo(() => (shipment ? liveState(shipment.raw, now) : null), [shipment?.raw, now]);
+
+  useEscapeKey(onClose, !!shipment);
 
   if (!shipment) return null;
   const r = shipment.raw;

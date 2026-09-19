@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import * as api from '../../../services/api';
 import { Shipment, PetDetails, petDetailsOf, toLocalInput } from '../types';
+import useEscapeKey from './useEscapeKey';
 
 interface Props {
   shipment: Shipment | null;
@@ -38,6 +39,8 @@ const EditShipmentModal: React.FC<Props> = ({ shipment, onClose, onSaved }) => {
     setPet(petDetailsOf(r) || {});
     setError('');
   }, [shipment?.id]);
+
+  useEscapeKey(onClose, !!shipment);
 
   if (!shipment) return null;
   const r = shipment.raw;

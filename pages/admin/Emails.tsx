@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Search, Send, X, Eye, Trash2, Clock, CheckCircle, XCircle, AlertCircle, Loader2, Edit3, ChevronDown } from 'lucide-react';
 import * as api from '../../services/api';
+import useEscapeKey from './components/useEscapeKey';
 import { useDebounced } from './components/useDebounced';
 
 interface EmailDraft {
@@ -35,6 +36,8 @@ const Emails: React.FC = () => {
   const [editSubject, setEditSubject] = useState('');
   const [sending, setSending] = useState<number | null>(null);
   const [error, setError] = useState('');
+  useEscapeKey(() => setSelectedDraft(null), selectedDraft !== null);
+  useEscapeKey(() => setPreviewDraft(null), previewDraft !== null);
   const debouncedSearch = useDebounced(searchQuery);
 
   const fetchDrafts = async () => {

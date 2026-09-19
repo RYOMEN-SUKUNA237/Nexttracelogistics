@@ -4,6 +4,7 @@ import {
   Mail, Phone, MapPin, Loader2,
 } from 'lucide-react';
 import * as api from '../../services/api';
+import useEscapeKey from './components/useEscapeKey';
 
 interface Customer {
   id: number;
@@ -51,6 +52,10 @@ const Customers: React.FC = () => {
   const [viewing, setViewing] = useState<Customer | null>(null);
   const [deleting, setDeleting] = useState<Customer | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+
+  useEscapeKey(() => setFormMode(null), formMode !== null);
+  useEscapeKey(() => setViewing(null), viewing !== null);
+  useEscapeKey(() => setDeleting(null), deleting !== null);
 
   const fetchCustomers = async () => {
     try {

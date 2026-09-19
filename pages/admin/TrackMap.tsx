@@ -26,6 +26,16 @@ interface TrackMapProps {
 const ACTIVE = ['pending', 'picked-up', 'in-transit', 'out-for-delivery', 'paused'];
 
 /**
+ * The map lists every shipment, finished ones included, so a delivery can be
+ * reviewed or re-opened from here. Moving shipments sort first, then those
+ * waiting to leave, then the ones that are done.
+ */
+const ORDER: Record<string, number> = {
+  'in-transit': 0, 'out-for-delivery': 0, paused: 1, 'picked-up': 2, pending: 3, delivered: 4, returned: 4,
+};
+const rank = (s: Shipment) => (s.isPaused ? 1 : ORDER[s.status] ?? 5);
+
+/**
  * One row of the shipment list. Defined outside TrackMap (and memoised) so the
  * one-second position tick re-renders the map, not the whole list: a component
  * declared inside the parent would be a new type on every render, which
@@ -90,7 +100,8 @@ const TrackMap: React.FC<TrackMapProps> = ({ shipments, onRefresh }) => {
   const lightRef = useRef(light);
   lightRef.current = light;
 
-  const active = useMemo(() => shipments.filter((s) => ACTIVE.includes(s.status)), [shipments]);
+  const active = useMemo(() => [...shipments].sort((a, b) => rank(a) - rank(b)), [shipments]);
+  const moving = useMemo(() => shipments.filter((s) => ACTIVE.includes(s.status)).length, [shipments]);
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return active;
@@ -138,6 +149,7 @@ const TrackMap: React.FC<TrackMapProps> = ({ shipments, onRefresh }) => {
   const windowHours = clock ? Math.round(clock.windowHours * 1e6) / 1e6 : null;
   const tl = useMemo(() => (plan ? buildTimeline(plan, windowHours) : null), [plan, windowHours]);
   const started = !!raw?.departed_at && selected?.status !== 'pending';
+  const finished = !!selected && ['delivered', 'returned'].includes(selected.status);
   const elapsed = !tl ? 0 : started && clock ? clock.elapsedHours : 0;
   const shownElapsed = tl && previewProgress != null ? (previewProgress / 100) * tl.totalHours : elapsed;
   const vehicle = plan && tl && tl.phases.length ? stateAt(plan, tl, shownElapsed) : null;
@@ -333,10 +345,13 @@ const TrackMap: React.FC<TrackMapProps> = ({ shipments, onRefresh }) => {
     frameRoute(m, plan, vehicle && started ? vehicle.position : null, tilted, 1500);
   };
 
-  const selectShipment = (s: Shipment) => {
+  // Stable identity: the one-second clock re-renders TrackMap, and a fresh
+  // callback here would defeat ShipmentCard's memo, rebuild every row each
+  // second and swallow clicks landing on a row mid-rebuild.
+  const selectShipment = useCallback((s: Shipment) => {
     setSelectedId(s.trackingId);
     setMobileTab('map');
-  };
+  }, []);
 
   const airborne = !!(live && started && !selected?.isPaused && live.state.kind === 'move' && live.state.mode === 'air');
   const isAir = !!plan?.segments.some((s) => s.mode === 'air');
@@ -368,7 +383,7 @@ const TrackMap: React.FC<TrackMapProps> = ({ shipments, onRefresh }) => {
       <div className="flex items-center justify-between mb-3 flex-shrink-0 gap-2">
         <div>
           <h2 className="text-lg sm:text-xl font-bold text-[#0a192f]">Live Tracking Map</h2>
-          <p className="text-xs text-gray-400">{active.length} shipments on the move or awaiting pickup</p>
+          <p className="text-xs text-gray-400">{active.length} shipments · {moving} on the move or awaiting pickup</p>
         </div>
         <div className="flex gap-2">
           <button onClick={onRefresh} className="flex items-center gap-1 text-xs bg-white px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600"><RefreshCw size={13} /> Refresh</button>
@@ -399,7 +414,7 @@ const TrackMap: React.FC<TrackMapProps> = ({ shipments, onRefresh }) => {
             </div>
             <div className="flex-1 overflow-y-auto">
               {visible.length === 0
-                ? <div className="p-8 text-center text-sm text-gray-400">No active shipments</div>
+                ? <div className="p-8 text-center text-sm text-gray-400">{search.trim() ? 'No shipments match that search' : 'No shipments yet'}</div>
                 : visible.map((s) => <ShipmentCard key={s.trackingId} s={s} selected={s.trackingId === selectedId} onSelect={selectShipment} />)}
             </div>
           </div>
@@ -505,8 +520,8 @@ const TrackMap: React.FC<TrackMapProps> = ({ shipments, onRefresh }) => {
                   <div className="px-4 border-t border-gray-100 flex gap-1 overflow-x-auto">
                     {([
                       ['journey', '🧭 Journey'],
-                      ...(started ? [['position', '📍 Move shipment']] : []),
-                      ...(live ? [['transit', isAir ? '✈️ Stops & layovers' : '🛑 Scheduled stops']] : []),
+                      ...(started ? [['position', finished ? '↩️ Re-open' : '📍 Move shipment']] : []),
+                      ...(live && !finished ? [['transit', isAir ? '✈️ Stops & layovers' : '🛑 Scheduled stops']] : []),
                     ] as [typeof panel, string][]).map(([id, label]) => (
                       <button key={id} onClick={() => setPanel(panel === id ? null : id)}
                         className={`px-3 py-2 text-xs font-semibold border-b-2 whitespace-nowrap ${panel === id ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
@@ -533,7 +548,7 @@ const TrackMap: React.FC<TrackMapProps> = ({ shipments, onRefresh }) => {
                       />
                     </div>
                   )}
-                  {panel === 'transit' && (
+                  {panel === 'transit' && !finished && (
                     <div className="px-4 py-3 border-t border-gray-50">
                       <StopControls
                         shipment={selected}

@@ -5,6 +5,7 @@ import {
 import { Courier } from './types';
 import Barcode from '../../components/ui/Barcode';
 import * as api from '../../services/api';
+import useEscapeKey from './components/useEscapeKey';
 
 interface CouriersProps {
   couriers: Courier[];
@@ -49,6 +50,9 @@ const Couriers: React.FC<CouriersProps> = ({ couriers, onRefresh }) => {
   const [copied, setCopied] = useState(false);
   const [deleting, setDeleting] = useState<Courier | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  useEscapeKey(() => setFormMode(null), formMode !== null);
+  useEscapeKey(() => setBarcodeFor(null), barcodeFor !== null);
+  useEscapeKey(() => setDeleting(null), deleting !== null);
   const [error, setError] = useState('');
 
   const openCreate = () => {
