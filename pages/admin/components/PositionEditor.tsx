@@ -81,7 +81,9 @@ const PositionEditor: React.FC<Props> = ({ shipment, live, external, onPreview, 
         lat: pos ? pos[1] : undefined,
         lng: pos ? wrapLng(pos[0]) : undefined,
       });
-      onDone(`📍 ${shipment.trackingId} moved to ${progress}%`);
+      onDone(willReopen
+        ? `↩️ ${shipment.trackingId} re-opened and moved to ${progress}%`
+        : `📍 ${shipment.trackingId} moved to ${progress}%`);
     } catch (e: any) {
       setError(e.message || 'Could not move the shipment.');
     } finally {
@@ -90,6 +92,10 @@ const PositionEditor: React.FC<Props> = ({ shipment, live, external, onPreview, 
   };
 
   const remaining = live.tl.totalHours * (1 - progress / 100);
+  // Moving a finished shipment back onto its route re-opens it: the server
+  // clears the delivery date and works the status out from the new position.
+  const finished = ['delivered', 'returned'].includes(shipment.status);
+  const willReopen = finished && progress < 100;
 
   return (
     <div className="space-y-3 text-xs">
@@ -121,13 +127,23 @@ const PositionEditor: React.FC<Props> = ({ shipment, live, external, onPreview, 
         </p>
       </div>
 
+      {finished && (
+        <p className={`text-[11px] p-2 rounded-lg border ${willReopen
+          ? 'text-amber-800 bg-amber-50 border-amber-200'
+          : 'text-gray-600 bg-gray-50 border-gray-200'}`}>
+          {willReopen
+            ? `⚠️ This shipment is marked ${shipment.status}. Applying puts it back on the road — the delivery date is cleared and tracking resumes from ${progress}%.`
+            : 'Drag the slider below 100% to re-open this shipment and put it back on the road.'}
+        </p>
+      )}
+
       {error && <p className="text-[11px] text-red-600">{error}</p>}
 
       <div className="flex justify-end gap-2 pt-1">
         <button type="button" onClick={onCancel} className="px-3 py-1.5 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
         <button type="button" onClick={apply} disabled={busy}
           className="flex items-center gap-1 px-3.5 py-1.5 font-semibold bg-blue-600 text-white hover:bg-blue-700 rounded-lg disabled:opacity-60">
-          {busy ? <Loader2 size={12} className="animate-spin" /> : 'Apply position'}
+          {busy ? <Loader2 size={12} className="animate-spin" /> : willReopen ? 'Re-open shipment' : 'Apply position'}
         </button>
       </div>
     </div>

@@ -94,7 +94,8 @@ const ShipmentDetailModal: React.FC<Props> = ({ shipment, couriers, onClose, onC
   const tabs: [Tab, string][] = [
     ['overview', 'Overview'],
     ['journey', 'Journey'],
-    ...(started && !finished && live ? [['move', 'Move'] as [Tab, string]] : []),
+    // A finished shipment can still be moved — that re-opens it (see PositionEditor).
+    ...(started && live ? [['move', finished ? 'Re-open' : 'Move'] as [Tab, string]] : []),
     ...(live && !finished ? [['transit', isAir ? 'Stops & layovers' : 'Scheduled stops'] as [Tab, string]] : []),
     ['history', 'History'],
   ];

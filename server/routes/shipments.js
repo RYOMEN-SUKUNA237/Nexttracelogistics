@@ -923,9 +923,13 @@ router.patch('/:id/alter-location', authMiddleware, async (req, res) => {
     if (progress === undefined || isNaN(prgNum) || prgNum < 0 || prgNum > 100) {
       return res.status(400).json({ error: 'Invalid progress percentage. Must be between 0 and 100.' });
     }
-    if (['pending', 'delivered', 'returned'].includes(shipment.status)) {
-      return res.status(400).json({ error: `A ${shipment.status} shipment cannot be moved.` });
+    if (shipment.status === 'pending') {
+      return res.status(400).json({ error: 'Dispatch the shipment before moving it.' });
     }
+    // A delivered or returned shipment can be re-opened by moving it back onto
+    // its route: the delivery date is cleared and the status recomputed below
+    // from the new position. Moving it to 100% leaves it finished.
+    const reopening = ['delivered', 'returned'].includes(shipment.status) && prgNum < 100;
 
     let newDeparted = shipment.departed_at;
     let newEstimated = shipment.estimated_delivery;
@@ -959,9 +963,10 @@ router.patch('/:id/alter-location', authMiddleware, async (req, res) => {
           current_lat = COALESCE($2, current_lat),
           current_lng = COALESCE($3, current_lng),
           departed_at = COALESCE($4, departed_at),
-          estimated_delivery = COALESCE($5, estimated_delivery)
-      WHERE id = $6
-    `, [prgNum, lat != null ? parseFloat(lat) : null, lng != null ? parseFloat(lng) : null, newDeparted, newEstimated, shipment.id]);
+          estimated_delivery = COALESCE($5, estimated_delivery),
+          actual_delivery = CASE WHEN $6 THEN NULL ELSE actual_delivery END
+      WHERE id = $7
+    `, [prgNum, lat != null ? parseFloat(lat) : null, lng != null ? parseFloat(lng) : null, newDeparted, newEstimated, reopening, shipment.id]);
 
     let updated = await reload(shipment.id);
     await markMilestonesSilently(updated);
@@ -976,16 +981,18 @@ router.patch('/:id/alter-location', authMiddleware, async (req, res) => {
         const inLastMile = ofd && cur.clock.elapsedHours >= ofd.atHours;
         const onTheWay = departed && cur.clock.elapsedHours >= departed.atHours;
         let next = updated.status;
-        if (inLastMile) next = 'out-for-delivery';
-        else if (onTheWay && ['picked-up', 'out-for-delivery'].includes(updated.status)) next = 'in-transit';
-        else if (!onTheWay && updated.status === 'in-transit') next = 'picked-up';
+        const movable = ['picked-up', 'in-transit', 'out-for-delivery'].concat(reopening ? ['delivered', 'returned'] : []);
+        if (inLastMile && movable.includes(updated.status)) next = 'out-for-delivery';
+        else if (onTheWay && movable.includes(updated.status) && updated.status !== 'in-transit') next = 'in-transit';
+        else if (!onTheWay && movable.includes(updated.status) && updated.status !== 'picked-up') next = 'picked-up';
         if (next !== updated.status) await pool.query('UPDATE shipments SET status = $1 WHERE id = $2', [next, shipment.id]);
       }
     }
 
-    const actionNotes = `Location altered to ${Math.round(prgNum)}%` + (location_name ? ` (${location_name})` : '') + ' by administrator.';
+    const actionNotes = (reopening ? `Shipment re-opened and moved to ${Math.round(prgNum)}%` : `Location altered to ${Math.round(prgNum)}%`)
+      + (location_name ? ` (${location_name})` : '') + ' by administrator.';
     await logHistory(shipment, {
-      status: shipment.status,
+      status: reopening ? (await reload(shipment.id)).status : shipment.status,
       location: location_name || 'En Route',
       lat: lat != null ? parseFloat(lat) : null,
       lng: lng != null ? parseFloat(lng) : null,
