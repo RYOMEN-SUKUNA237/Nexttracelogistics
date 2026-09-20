@@ -239,8 +239,26 @@ async function markMilestonesSilently(s) {
 
 const EMAIL_FRESHNESS_HOURS = 6;
 
+// How far behind the simulation may catch up on its own. A status milestone
+// overdue by more than this is recorded but not acted on, so old rows are
+// never rewritten by someone simply opening a page. See syncTimelineEvents.
+const STALE_MILESTONE_HOURS = 48;
+
+/**
+ * How many real hours ago a milestone was due.
+ *
+ * The simulated clock is clamped to the length of the journey, so once a
+ * shipment is overdue `elapsedHours - atHours` collapses to zero however long
+ * ago it should have arrived. Wall-clock time is what tells us whether we are
+ * catching up on a short gap or replaying old history.
+ */
+function lateByHours(clock, e) {
+  const dueMs = clock.departedMs + clock.pausedMs + e.atHours * 3.6e6;
+  return (Date.now() - dueMs) / 3.6e6;
+}
+
 async function applyTimelineEvent(s, e, cur) {
-  const lateBy = cur.clock.elapsedHours - e.atHours;
+  const lateBy = Math.max(0, lateByHours(cur.clock, e));
   const at = new Date(Date.now() - lateBy * 3.6e6).toISOString();
   const fresh = lateBy <= EMAIL_FRESHNESS_HOURS;
 
@@ -331,10 +349,19 @@ async function syncTimelineEvents(s) {
   const logged = T.parseJson(s.timeline_events);
 
   if (!Array.isArray(logged)) {
-    // Shipment created before automatic events existed: adopt silently.
+    // Shipment created before automatic events existed. Everything already due
+    // is adopted as "seen" so that nothing is replayed onto a shipment whose
+    // journey ran before this feature existed.
+    //
+    // This deliberately includes `delivered`. Leaving it out meant that an old
+    // shipment whose simulated arrival had already passed was marked delivered
+    // on the very next request — rewriting status, progress, actual_delivery
+    // and the courier's counters for data an administrator never touched.
+    // Whatever is NOT yet due is not adopted, so a legacy shipment that is
+    // still genuinely on the road goes on to deliver normally.
     await pool.query(
       'UPDATE shipments SET timeline_events = $1::jsonb WHERE id = $2 AND timeline_events IS NULL',
-      [JSON.stringify(due.filter((e) => e.key !== 'delivered').map((e) => e.key)), s.id]
+      [JSON.stringify(due.map((e) => e.key)), s.id]
     );
     return s;
   }
@@ -351,6 +378,16 @@ async function syncTimelineEvents(s) {
     );
     if (rowCount === 0) continue;
     changed = true;
+    // A milestone that came due long ago belongs to a stretch of the journey
+    // nobody was watching. It is recorded above so it never fires later, but
+    // it must not rewrite the shipment now: catching up days-old history would
+    // change rows — statuses, delivery dates, courier counters — that no
+    // administrator asked us to touch. Recent catch-up still works normally.
+    const late = lateByHours(cur.clock, e);
+    if (e.status && late > STALE_MILESTONE_HOURS) {
+      console.log(`[timeline] ${s.tracking_id}: ${e.key} was due ${Math.round(late)}h ago — recorded, not applied.`);
+      continue;
+    }
     try {
       current = await applyTimelineEvent(current, e, cur);
     } catch (err) {
